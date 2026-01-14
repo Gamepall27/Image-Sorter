@@ -623,6 +623,20 @@
   gap: 16px;
 }
 
+.similar-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: #fff;
+  border-radius: 16px;
+  padding: 12px 16px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
 .similar-group {
   background: #fff;
   border-radius: 16px;

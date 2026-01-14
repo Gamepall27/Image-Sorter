@@ -166,27 +166,65 @@ function App() {
       group.push(item)
       buckets.set(key, group)
     })
-    const groups: Array<{ base: MediaItem; matches: Array<{ item: MediaItem; score: number }> }> = []
     const threshold = 10
+    const groups: Array<{ base: MediaItem; matches: Array<{ item: MediaItem; score: number }> }> = []
+
     buckets.forEach((bucket) => {
+      if (bucket.length < 2) return
+      const parent = bucket.map((_, index) => index)
+      const find = (index: number): number => {
+        if (parent[index] !== index) {
+          parent[index] = find(parent[index])
+        }
+        return parent[index]
+      }
+      const union = (a: number, b: number) => {
+        const rootA = find(a)
+        const rootB = find(b)
+        if (rootA !== rootB) {
+          parent[rootB] = rootA
+        }
+      }
+
       for (let i = 0; i < bucket.length; i += 1) {
         const base = bucket[i]
         if (!base.dHash) continue
-        const matches: Array<{ item: MediaItem; score: number }> = []
         for (let j = i + 1; j < bucket.length; j += 1) {
           const candidate = bucket[j]
           if (!candidate.dHash) continue
           const distance = hammingDistance(base.dHash, candidate.dHash)
           if (distance <= threshold) {
-            const score = Math.round((1 - distance / 64) * 100)
-            matches.push({ item: candidate, score })
+            union(i, j)
           }
         }
+      }
+
+      const clusters = new Map<number, MediaItem[]>()
+      bucket.forEach((item, index) => {
+        const root = find(index)
+        const list = clusters.get(root) ?? []
+        list.push(item)
+        clusters.set(root, list)
+      })
+
+      clusters.forEach((cluster) => {
+        if (cluster.length < 2) return
+        const [base, ...rest] = cluster
+        const matches = rest
+          .map((item) => {
+            if (!base.dHash || !item.dHash) return null
+            const distance = hammingDistance(base.dHash, item.dHash)
+            const score = Math.round((1 - distance / 64) * 100)
+            return { item, score }
+          })
+          .filter((entry): entry is { item: MediaItem; score: number } => Boolean(entry))
+          .sort((a, b) => b.score - a.score)
         if (matches.length > 0) {
           groups.push({ base, matches })
         }
-      }
+      })
     })
+
     return groups.sort((a, b) => b.matches.length - a.matches.length)
   }, [items, tabMode, compareModeActive])
 
@@ -366,6 +404,19 @@ function App() {
       return next
     })
   }, [])
+
+  const markAllSimilarForDeletion = useCallback(() => {
+    setDecisions((prev) => {
+      const next = { ...prev }
+      similarGroups.forEach((group) => {
+        next[group.base.path] = 'keep'
+        group.matches.forEach((match) => {
+          next[match.item.path] = 'delete'
+        })
+      })
+      return next
+    })
+  }, [similarGroups])
 
   const toggleCompareMode = useCallback(() => {
     setCompareModeActive((prev) => {
@@ -768,60 +819,68 @@ function App() {
                   <p>Keine ähnlichen Bilder gefunden.</p>
                 </div>
               ) : (
-                similarGroups.map((group) => (
-                  <div key={group.base.path} className="similar-group">
-                    <div className="similar-base">
-                      <img src={group.base.fileUrl} alt={group.base.name} loading="lazy" decoding="async" />
-                      <div>
-                        <h3>{group.base.name}</h3>
-                        <p>{formatDate(group.base.modifiedAt)}</p>
-                        <div className="media-actions">
-                          <button className="keep" onClick={() => toggleDecision(group.base, 'keep')}>
-                            Behalten
-                          </button>
-                          <button className="discard" onClick={() => toggleDecision(group.base, 'delete')}>
-                            Löschen
-                          </button>
-                          <button
-                            className="ghost"
-                            onClick={() => markSimilarGroupForDeletion(group.base, group.matches)}
-                          >
-                            Alle außer Original löschen
-                          </button>
+                <>
+                  <div className="similar-toolbar">
+                    <button className="primary" onClick={markAllSimilarForDeletion}>
+                      Alle ähnlichen löschen
+                    </button>
+                    <span>{similarGroups.length} Gruppen gefunden</span>
+                  </div>
+                  {similarGroups.map((group) => (
+                    <div key={group.base.path} className="similar-group">
+                      <div className="similar-base">
+                        <img src={group.base.fileUrl} alt={group.base.name} loading="lazy" decoding="async" />
+                        <div>
+                          <h3>{group.base.name}</h3>
+                          <p>{formatDate(group.base.modifiedAt)}</p>
+                          <div className="media-actions">
+                            <button className="keep" onClick={() => toggleDecision(group.base, 'keep')}>
+                              Behalten
+                            </button>
+                            <button className="discard" onClick={() => toggleDecision(group.base, 'delete')}>
+                              Löschen
+                            </button>
+                            <button
+                              className="ghost"
+                              onClick={() => markSimilarGroupForDeletion(group.base, group.matches)}
+                            >
+                              Alle außer Original löschen
+                            </button>
+                          </div>
+                          {decisions[group.base.path] ? (
+                            <span className={`status status-${decisions[group.base.path]} similar-status`}>
+                              {decisions[group.base.path]}
+                            </span>
+                          ) : null}
                         </div>
-                        {decisions[group.base.path] ? (
-                          <span className={`status status-${decisions[group.base.path]} similar-status`}>
-                            {decisions[group.base.path]}
-                          </span>
-                        ) : null}
+                      </div>
+                      <div className="similar-matches">
+                        {group.matches.map((match) => (
+                          <div key={match.item.path} className="similar-card">
+                            <img src={match.item.fileUrl} alt={match.item.name} loading="lazy" decoding="async" />
+                            <div>
+                              <h4>{match.item.name}</h4>
+                              <p>Ähnlichkeit: {match.score}%</p>
+                              <div className="media-actions">
+                                <button className="keep" onClick={() => toggleDecision(match.item, 'keep')}>
+                                  Behalten
+                                </button>
+                                <button className="discard" onClick={() => toggleDecision(match.item, 'delete')}>
+                                  Löschen
+                                </button>
+                              </div>
+                              {decisions[match.item.path] ? (
+                                <span className={`status status-${decisions[match.item.path]} similar-status`}>
+                                  {decisions[match.item.path]}
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                    <div className="similar-matches">
-                      {group.matches.map((match) => (
-                        <div key={match.item.path} className="similar-card">
-                          <img src={match.item.fileUrl} alt={match.item.name} loading="lazy" decoding="async" />
-                          <div>
-                            <h4>{match.item.name}</h4>
-                            <p>Ähnlichkeit: {match.score}%</p>
-                            <div className="media-actions">
-                              <button className="keep" onClick={() => toggleDecision(match.item, 'keep')}>
-                                Behalten
-                              </button>
-                              <button className="discard" onClick={() => toggleDecision(match.item, 'delete')}>
-                                Löschen
-                              </button>
-                            </div>
-                            {decisions[match.item.path] ? (
-                              <span className={`status status-${decisions[match.item.path]} similar-status`}>
-                                {decisions[match.item.path]}
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))
+                  ))}
+                </>
               )}
             </div>
           ) : visibleItems.length === 0 ? (
