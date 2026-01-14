@@ -1,7 +1,8 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import fs from 'node:fs/promises'
 
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -24,7 +25,83 @@ export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
 
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 'public') : RENDERER_DIST
 
+const imageExtensions = new Set([
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.gif',
+  '.bmp',
+  '.webp',
+  '.tiff',
+  '.heic',
+])
+
+const videoExtensions = new Set([
+  '.mp4',
+  '.mov',
+  '.mkv',
+  '.webm',
+  '.avi',
+  '.m4v',
+])
+
 let win: BrowserWindow | null
+
+type MediaItem = {
+  id: string
+  name: string
+  path: string
+  extension: string
+  type: 'image' | 'video'
+  sizeBytes: number
+  modifiedAt: number
+}
+
+async function scanDirectory(directory: string, items: MediaItem[]) {
+  const entries = await fs.readdir(directory, { withFileTypes: true })
+
+  for (const entry of entries) {
+    const entryPath = path.join(directory, entry.name)
+    if (entry.isDirectory()) {
+      await scanDirectory(entryPath, items)
+      continue
+    }
+
+    if (!entry.isFile()) {
+      continue
+    }
+
+    const extension = path.extname(entry.name).toLowerCase()
+    const isImage = imageExtensions.has(extension)
+    const isVideo = videoExtensions.has(extension)
+
+    if (!isImage && !isVideo) {
+      continue
+    }
+
+    const stats = await fs.stat(entryPath)
+
+    items.push({
+      id: entryPath,
+      name: entry.name,
+      path: entryPath,
+      extension,
+      type: isImage ? 'image' : 'video',
+      sizeBytes: stats.size,
+      modifiedAt: stats.mtimeMs,
+    })
+  }
+}
+
+async function scanMediaFolders(folders: string[]) {
+  const items: MediaItem[] = []
+
+  for (const folder of folders) {
+    await scanDirectory(folder, items)
+  }
+
+  return items
+}
 
 function createWindow() {
   win = new BrowserWindow({
@@ -32,6 +109,37 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
     },
+  })
+
+  ipcMain.handle('select-folders', async () => {
+    if (!win) {
+      return []
+    }
+
+    const result = await dialog.showOpenDialog(win, {
+      properties: ['openDirectory', 'multiSelections'],
+    })
+
+    return result.canceled ? [] : result.filePaths
+  })
+
+  ipcMain.handle('scan-folders', async (_event, folders: string[]) => {
+    return scanMediaFolders(folders)
+  })
+
+  ipcMain.handle('trash-items', async (_event, paths: string[]) => {
+    const results = await Promise.all(
+      paths.map(async (itemPath) => {
+        try {
+          await shell.trashItem(itemPath)
+          return { path: itemPath, ok: true }
+        } catch (error) {
+          return { path: itemPath, ok: false, error: (error as Error).message }
+        }
+      }),
+    )
+
+    return results
   })
 
   // Test active push message to Renderer-process.

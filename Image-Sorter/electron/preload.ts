@@ -22,3 +22,9 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   // You can expose other APTs you need here.
   // ...
 })
+
+contextBridge.exposeInMainWorld('mediaAPI', {
+  selectFolders: () => ipcRenderer.invoke('select-folders'),
+  scanFolders: (folders: string[]) => ipcRenderer.invoke('scan-folders', folders),
+  trashItems: (paths: string[]) => ipcRenderer.invoke('trash-items', paths),
+})
