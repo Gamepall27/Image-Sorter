@@ -193,6 +193,10 @@
   background: linear-gradient(90deg, #6366f1, #22d3ee);
   transition: width 150ms ease;
 }
+
+.modal-progress {
+  margin-top: 8px;
+}
 .overview {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

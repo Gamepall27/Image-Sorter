@@ -534,27 +534,6 @@ function App() {
             </div>
           </div>
         ) : null}
-        {trashProgress.active ? (
-          <div className="scan-progress">
-            <div>
-              <strong>Verschiebe in Papierkorb</strong>
-              <span>
-                {trashProgress.processed} von {trashProgress.total || '…'}
-              </span>
-            </div>
-            <div className="progress-bar">
-              <span
-                className="progress-fill"
-                style={{
-                  width: trashProgress.total
-                    ? `${Math.min(100, Math.round((trashProgress.processed / trashProgress.total) * 100))}%`
-                    : '0%',
-                }}
-              />
-            </div>
-          </div>
-        ) : null}
-
         <section className="overview">
           <div className="overview-card">
             <p>Automatisch markiert</p>
@@ -837,6 +816,26 @@ function App() {
                 Auswahl löschen
               </button>
             </div>
+            {trashProgress.active ? (
+              <div className="scan-progress modal-progress">
+                <div>
+                  <strong>Verschiebe in Papierkorb</strong>
+                  <span>
+                    {trashProgress.processed} von {trashProgress.total || '…'}
+                  </span>
+                </div>
+                <div className="progress-bar">
+                  <span
+                    className="progress-fill"
+                    style={{
+                      width: trashProgress.total
+                        ? `${Math.min(100, Math.round((trashProgress.processed / trashProgress.total) * 100))}%`
+                        : '0%',
+                    }}
+                  />
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}
