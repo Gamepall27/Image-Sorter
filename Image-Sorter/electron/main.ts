@@ -63,62 +63,67 @@ const computeDHash = async (filePath: string) => {
   }
 }
 
-const scanFolder = async (folder: string) => {
-  const results: Array<{
-    id: string
-    name: string
-    path: string
-    fileUrl: string
-    size: number
-    modifiedAt: number
-    type: 'image' | 'video'
-    folder: string
-    autoFlag?: string
-    hash?: string
-    dHash?: string
-  }> = []
+type MediaItem = {
+  id: string
+  name: string
+  path: string
+  fileUrl: string
+  size: number
+  modifiedAt: number
+  type: 'image' | 'video'
+  folder: string
+  autoFlag?: string
+  hash?: string
+  dHash?: string
+}
 
+const collectMediaFiles = async (folder: string, root: string): Promise<Array<{ path: string; folder: string }>> => {
+  const results: Array<{ path: string; folder: string }> = []
   const entries = await fs.readdir(folder, { withFileTypes: true })
   for (const entry of entries) {
     const entryPath = path.join(folder, entry.name)
     if (entry.isDirectory()) {
-      results.push(...(await scanFolder(entryPath)))
+      results.push(...(await collectMediaFiles(entryPath, root)))
       continue
     }
     if (!entry.isFile()) continue
-
     const ext = path.extname(entry.name).toLowerCase()
-    const isImage = imageExtensions.has(ext)
-    const isVideo = videoExtensions.has(ext)
-
-    if (!isImage && !isVideo) continue
-
-    const stats = await fs.stat(entryPath)
-    const autoFlag = entry.name.toLowerCase().includes('screenshot')
-      ? 'Screenshot'
-      : stats.size < 200 * 1024
-        ? 'Sehr klein'
-        : undefined
-
-    const hash = isImage ? await hashFile(entryPath) : undefined
-    const dHash = isImage ? await computeDHash(entryPath) : undefined
-
-    results.push({
-      id: entry.name,
-      name: entry.name,
-      path: entryPath,
-      fileUrl: `media://${encodeURIComponent(entryPath)}`,
-      size: stats.size,
-      modifiedAt: stats.mtimeMs,
-      type: isImage ? 'image' : 'video',
-      folder,
-      autoFlag,
-      hash,
-      dHash,
-    })
+    if (!imageExtensions.has(ext) && !videoExtensions.has(ext)) continue
+    results.push({ path: entryPath, folder: root })
   }
-
   return results
+}
+
+const buildMediaItem = async (entryPath: string, folder: string): Promise<MediaItem | null> => {
+  const ext = path.extname(entryPath).toLowerCase()
+  const isImage = imageExtensions.has(ext)
+  const isVideo = videoExtensions.has(ext)
+
+  if (!isImage && !isVideo) return null
+
+  const stats = await fs.stat(entryPath)
+  const autoFlag = entryPath.toLowerCase().includes('screenshot')
+    ? 'Screenshot'
+    : stats.size < 200 * 1024
+      ? 'Sehr klein'
+      : undefined
+
+  const hash = isImage ? await hashFile(entryPath) : undefined
+  const dHash = isImage ? await computeDHash(entryPath) : undefined
+
+  return {
+    id: path.basename(entryPath),
+    name: path.basename(entryPath),
+    path: entryPath,
+    fileUrl: `media://${encodeURIComponent(entryPath)}`,
+    size: stats.size,
+    modifiedAt: stats.mtimeMs,
+    type: isImage ? 'image' : 'video',
+    folder,
+    autoFlag,
+    hash,
+    dHash,
+  }
 }
 
 const registerMediaProtocol = () => {
@@ -150,7 +155,7 @@ const createWindow = () => {
   }
 }
 
-ipcMain.handle('pick-folders', async () => {
+ipcMain.handle('pick-folders', async (event) => {
   const result = await dialog.showOpenDialog({
     properties: ['openDirectory', 'multiSelections'],
   })
@@ -160,13 +165,40 @@ ipcMain.handle('pick-folders', async () => {
   }
 
   const folders = result.filePaths
-  const items = (
+  const fileEntries = (
     await Promise.all(
       folders.map(async (folder) => {
-        return scanFolder(folder)
+        return collectMediaFiles(folder, folder)
       }),
     )
   ).flat()
+  const total = fileEntries.length
+  let loaded = 0
+  const items: MediaItem[] = []
+
+  if (total === 0) {
+    event.sender.send('scan-progress', { loaded: 0, total: 0 })
+    return { folders, items }
+  }
+
+  event.sender.send('scan-progress', { loaded: 0, total })
+
+  let index = 0
+  const concurrency = Math.min(4, total)
+  const workers = Array.from({ length: concurrency }, async () => {
+    while (index < fileEntries.length) {
+      const current = fileEntries[index]
+      index += 1
+      const built = await buildMediaItem(current.path, current.folder)
+      if (built) {
+        items.push(built)
+      }
+      loaded += 1
+      event.sender.send('scan-progress', { loaded, total })
+    }
+  })
+
+  await Promise.all(workers)
 
   return { folders, items }
 })

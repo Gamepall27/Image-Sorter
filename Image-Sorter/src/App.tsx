@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
 
 type MediaType = 'image' | 'video'
@@ -35,6 +35,47 @@ type LayoutMode = 'grid' | 'list'
 type TabMode = 'all' | 'duplicates' | 'similar'
 
 const STORAGE_KEY = 'image-sorter-decisions'
+
+type MediaCardProps = {
+  item: MediaItem
+  decision?: Decision
+  badgeLabel?: string
+  onToggle: (item: MediaItem, decision: Decision) => void
+}
+
+const MediaCard = memo(function MediaCard({ item, decision, badgeLabel, onToggle }: MediaCardProps) {
+  return (
+    <article className="media-card">
+      <div className="thumb">
+        {item.type === 'image' ? (
+          <img src={item.fileUrl} alt={item.name} loading="lazy" decoding="async" />
+        ) : (
+          <video src={item.fileUrl} preload="metadata" muted />
+        )}
+        <span className="thumb-type">{item.type === 'image' ? 'Foto' : 'Video'}</span>
+      </div>
+      <div className="media-info">
+        <div>
+          <h3>{item.name}</h3>
+          <p>{formatDate(item.modifiedAt)}</p>
+        </div>
+        <div className="meta">
+          <span>{formatBytes(item.size)}</span>
+          {badgeLabel ? <span className="badge badge-flagged">{badgeLabel}</span> : null}
+        </div>
+      </div>
+      <div className="media-actions">
+        <button className="keep" onClick={() => onToggle(item, 'keep')}>
+          Behalten
+        </button>
+        <button className="discard" onClick={() => onToggle(item, 'delete')}>
+          Löschen
+        </button>
+      </div>
+      {decision ? <span className={`status status-${decision}`}>{decision}</span> : null}
+    </article>
+  )
+})
 
 const formatBytes = (bytes: number) => {
   if (bytes >= 1024 * 1024 * 1024) {
@@ -92,6 +133,7 @@ function App() {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [showPreviewModal, setShowPreviewModal] = useState(false)
   const [tabMode, setTabMode] = useState<TabMode>('all')
+  const [scanProgress, setScanProgress] = useState({ active: false, loaded: 0, total: 0 })
 
   const duplicateHashes = useMemo(() => {
     const counts = new Map<string, number>()
@@ -145,6 +187,16 @@ function App() {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored) {
       setDecisions(JSON.parse(stored) as Record<string, Decision>)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!window.mediaApi?.onScanProgress) return
+    const unsubscribe = window.mediaApi.onScanProgress((progress) => {
+      setScanProgress({ active: true, loaded: progress.loaded, total: progress.total })
+    })
+    return () => {
+      unsubscribe?.()
     }
   }, [])
 
@@ -260,6 +312,7 @@ function App() {
 
   const handleAddFolders = async () => {
     if (!window.mediaApi) return
+    setScanProgress({ active: true, loaded: 0, total: 0 })
     const result = await window.mediaApi.pickFolders()
     if (!result) return
 
@@ -274,11 +327,12 @@ function App() {
       })
       return merged
     })
+    setScanProgress((prev) => ({ ...prev, active: false, loaded: prev.total || result.items.length }))
   }
 
-  const toggleDecision = (item: MediaItem, decision: Decision) => {
+  const toggleDecision = useCallback((item: MediaItem, decision: Decision) => {
     setDecisions((prev) => ({ ...prev, [item.path]: decision }))
-  }
+  }, [])
 
   const keepCount = Object.values(decisions).filter((value) => value === 'keep').length
   const deleteCount = Object.values(decisions).filter((value) => value === 'delete').length
@@ -427,6 +481,26 @@ function App() {
             </button>
           </div>
         </header>
+        {scanProgress.active ? (
+          <div className="scan-progress">
+            <div>
+              <strong>Lade Medien</strong>
+              <span>
+                {scanProgress.loaded} von {scanProgress.total || '…'}
+              </span>
+            </div>
+            <div className="progress-bar">
+              <span
+                className="progress-fill"
+                style={{
+                  width: scanProgress.total
+                    ? `${Math.min(100, Math.round((scanProgress.loaded / scanProgress.total) * 100))}%`
+                    : '0%',
+                }}
+              />
+            </div>
+          </div>
+        ) : null}
 
         <section className="overview">
           <div className="overview-card">
@@ -618,37 +692,13 @@ function App() {
                         const badgeLabel = isDuplicate ? 'Duplikat' : item.autoFlag
 
                         return (
-                          <article key={item.path} className="media-card">
-                            <div className="thumb">
-                              {item.type === 'image' ? (
-                                <img src={item.fileUrl} alt={item.name} loading="lazy" decoding="async" />
-                              ) : (
-                                <video src={item.fileUrl} preload="metadata" muted />
-                              )}
-                              <span className="thumb-type">{item.type === 'image' ? 'Foto' : 'Video'}</span>
-                            </div>
-                            <div className="media-info">
-                              <div>
-                                <h3>{item.name}</h3>
-                                <p>{formatDate(item.modifiedAt)}</p>
-                              </div>
-                              <div className="meta">
-                                <span>{formatBytes(item.size)}</span>
-                                {badgeLabel ? <span className="badge badge-flagged">{badgeLabel}</span> : null}
-                              </div>
-                            </div>
-                            <div className="media-actions">
-                              <button className="keep" onClick={() => toggleDecision(item, 'keep')}>
-                                Behalten
-                              </button>
-                              <button className="discard" onClick={() => toggleDecision(item, 'delete')}>
-                                Löschen
-                              </button>
-                            </div>
-                            {decisions[item.path] ? (
-                              <span className={`status status-${decisions[item.path]}`}>{decisions[item.path]}</span>
-                            ) : null}
-                          </article>
+                          <MediaCard
+                            key={item.path}
+                            item={item}
+                            decision={decisions[item.path]}
+                            badgeLabel={badgeLabel}
+                            onToggle={toggleDecision}
+                          />
                         )
                       })}
                     </div>

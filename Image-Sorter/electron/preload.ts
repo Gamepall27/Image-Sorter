@@ -26,4 +26,13 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
 contextBridge.exposeInMainWorld('mediaApi', {
   pickFolders: () => ipcRenderer.invoke('pick-folders'),
   moveToTrash: (paths: string[]) => ipcRenderer.invoke('move-to-trash', paths),
+  onScanProgress: (callback: (progress: { loaded: number; total: number }) => void) => {
+    const listener = (_event: unknown, progress: { loaded: number; total: number }) => {
+      callback(progress)
+    }
+    ipcRenderer.on('scan-progress', listener)
+    return () => {
+      ipcRenderer.removeListener('scan-progress', listener)
+    }
+  },
 })

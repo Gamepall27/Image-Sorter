@@ -31,6 +31,7 @@ declare global {
     mediaApi?: {
       pickFolders: () => Promise<MediaPickResult>
       moveToTrash: (paths: string[]) => Promise<TrashResult>
+      onScanProgress: (callback: (progress: { loaded: number; total: number }) => void) => () => void
     }
   }
 }
