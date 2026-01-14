@@ -1,9 +1,8 @@
-import { app, BrowserWindow } from 'electron'
-import { createRequire } from 'node:module'
-import { fileURLToPath } from 'node:url'
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import path from 'node:path'
+import fs from 'node:fs/promises'
 
-const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // The built directory structure
@@ -26,7 +25,61 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 
 
 let win: BrowserWindow | null
 
-function createWindow() {
+const imageExtensions = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tiff', '.heic'])
+const videoExtensions = new Set(['.mp4', '.mov', '.mkv', '.avi', '.webm', '.m4v'])
+
+const scanFolder = async (folder: string) => {
+  const results: Array<{
+    id: string
+    name: string
+    path: string
+    fileUrl: string
+    size: number
+    modifiedAt: number
+    type: 'image' | 'video'
+    folder: string
+    autoFlag?: string
+  }> = []
+
+  const entries = await fs.readdir(folder, { withFileTypes: true })
+  for (const entry of entries) {
+    const entryPath = path.join(folder, entry.name)
+    if (entry.isDirectory()) {
+      results.push(...(await scanFolder(entryPath)))
+      continue
+    }
+    if (!entry.isFile()) continue
+
+    const ext = path.extname(entry.name).toLowerCase()
+    const isImage = imageExtensions.has(ext)
+    const isVideo = videoExtensions.has(ext)
+
+    if (!isImage && !isVideo) continue
+
+    const stats = await fs.stat(entryPath)
+    const autoFlag = entry.name.toLowerCase().includes('screenshot')
+      ? 'Screenshot'
+      : stats.size < 200 * 1024
+        ? 'Sehr klein'
+        : undefined
+
+    results.push({
+      id: entry.name,
+      name: entry.name,
+      path: entryPath,
+      fileUrl: pathToFileURL(entryPath).toString(),
+      size: stats.size,
+      modifiedAt: stats.mtimeMs,
+      type: isImage ? 'image' : 'video',
+      folder,
+      autoFlag,
+    })
+  }
+
+  return results
+}
+
+const createWindow = () => {
   win = new BrowserWindow({
     icon: path.join(process.env.VITE_PUBLIC, 'electron-vite.svg'),
     webPreferences: {
@@ -46,6 +99,43 @@ function createWindow() {
     win.loadFile(path.join(RENDERER_DIST, 'index.html'))
   }
 }
+
+ipcMain.handle('pick-folders', async () => {
+  const result = await dialog.showOpenDialog({
+    properties: ['openDirectory', 'multiSelections'],
+  })
+
+  if (result.canceled) {
+    return { folders: [], items: [] }
+  }
+
+  const folders = result.filePaths
+  const items = (
+    await Promise.all(
+      folders.map(async (folder) => {
+        return scanFolder(folder)
+      }),
+    )
+  ).flat()
+
+  return { folders, items }
+})
+
+ipcMain.handle('move-to-trash', async (_event, paths: string[]) => {
+  const trashed: string[] = []
+  const failed: string[] = []
+
+  for (const filePath of paths) {
+    try {
+      await shell.trashItem(filePath)
+      trashed.push(filePath)
+    } catch {
+      failed.push(filePath)
+    }
+  }
+
+  return { trashed, failed }
+})
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
