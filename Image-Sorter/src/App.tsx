@@ -134,6 +134,7 @@ function App() {
   const [showPreviewModal, setShowPreviewModal] = useState(false)
   const [tabMode, setTabMode] = useState<TabMode>('all')
   const [scanProgress, setScanProgress] = useState({ active: false, loaded: 0, total: 0 })
+  const [trashProgress, setTrashProgress] = useState({ active: false, processed: 0, total: 0 })
   const [similarCount, setSimilarCount] = useState(0)
 
   const duplicateHashes = useMemo(() => {
@@ -204,6 +205,16 @@ function App() {
     if (!window.mediaApi?.onScanProgress) return
     const unsubscribe = window.mediaApi.onScanProgress((progress) => {
       setScanProgress({ active: true, loaded: progress.loaded, total: progress.total })
+    })
+    return () => {
+      unsubscribe?.()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!window.mediaApi?.onTrashProgress) return
+    const unsubscribe = window.mediaApi.onTrashProgress((progress) => {
+      setTrashProgress({ active: true, processed: progress.processed, total: progress.total })
     })
     return () => {
       unsubscribe?.()
@@ -368,6 +379,7 @@ function App() {
 
   const handleMoveToTrash = async () => {
     if (!window.mediaApi || deleteCandidates.length === 0) return
+    setTrashProgress({ active: true, processed: 0, total: deleteCandidates.length })
     const result = await window.mediaApi.moveToTrash(deleteCandidates.map((item) => item.path))
     if (!result) return
 
@@ -381,6 +393,7 @@ function App() {
       return next
     })
     setShowDeleteModal(false)
+    setTrashProgress((prev) => ({ ...prev, active: false }))
   }
 
   return (
@@ -515,6 +528,26 @@ function App() {
                 style={{
                   width: scanProgress.total
                     ? `${Math.min(100, Math.round((scanProgress.loaded / scanProgress.total) * 100))}%`
+                    : '0%',
+                }}
+              />
+            </div>
+          </div>
+        ) : null}
+        {trashProgress.active ? (
+          <div className="scan-progress">
+            <div>
+              <strong>Verschiebe in Papierkorb</strong>
+              <span>
+                {trashProgress.processed} von {trashProgress.total || '…'}
+              </span>
+            </div>
+            <div className="progress-bar">
+              <span
+                className="progress-fill"
+                style={{
+                  width: trashProgress.total
+                    ? `${Math.min(100, Math.round((trashProgress.processed / trashProgress.total) * 100))}%`
                     : '0%',
                 }}
               />

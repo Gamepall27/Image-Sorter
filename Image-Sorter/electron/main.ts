@@ -203,9 +203,18 @@ ipcMain.handle('pick-folders', async (event) => {
   return { folders, items }
 })
 
-ipcMain.handle('move-to-trash', async (_event, paths: string[]) => {
+ipcMain.handle('move-to-trash', async (event, paths: string[]) => {
   const trashed: string[] = []
   const failed: string[] = []
+  const total = paths.length
+  let processed = 0
+
+  if (total === 0) {
+    event.sender.send('trash-progress', { processed: 0, total: 0 })
+    return { trashed, failed }
+  }
+
+  event.sender.send('trash-progress', { processed, total })
 
   for (const filePath of paths) {
     try {
@@ -214,6 +223,8 @@ ipcMain.handle('move-to-trash', async (_event, paths: string[]) => {
     } catch {
       failed.push(filePath)
     }
+    processed += 1
+    event.sender.send('trash-progress', { processed, total })
   }
 
   return { trashed, failed }

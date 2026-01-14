@@ -32,6 +32,7 @@ declare global {
       pickFolders: () => Promise<MediaPickResult>
       moveToTrash: (paths: string[]) => Promise<TrashResult>
       onScanProgress: (callback: (progress: { loaded: number; total: number }) => void) => () => void
+      onTrashProgress: (callback: (progress: { processed: number; total: number }) => void) => () => void
     }
   }
 }

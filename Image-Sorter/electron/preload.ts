@@ -35,4 +35,13 @@ contextBridge.exposeInMainWorld('mediaApi', {
       ipcRenderer.removeListener('scan-progress', listener)
     }
   },
+  onTrashProgress: (callback: (progress: { processed: number; total: number }) => void) => {
+    const listener = (_event: unknown, progress: { processed: number; total: number }) => {
+      callback(progress)
+    }
+    ipcRenderer.on('trash-progress', listener)
+    return () => {
+      ipcRenderer.removeListener('trash-progress', listener)
+    }
+  },
 })
