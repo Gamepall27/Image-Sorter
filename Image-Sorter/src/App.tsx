@@ -1,6 +1,17 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
 
+declare global {
+  interface Window {
+    mediaApi?: {
+      pickFolders: () => Promise<{ folders: string[]; items: any[] } | null>
+      moveToTrash: (paths: string[]) => Promise<{ trashed: string[] } | null>
+      onScanProgress: (callback: (progress: { loaded: number; total: number }) => void) => (() => void) | undefined
+      onTrashProgress: (callback: (progress: { processed: number; total: number }) => void) => (() => void) | undefined
+    }
+  }
+}
+
 type MediaType = 'image' | 'video'
 
 type MediaItem = {
@@ -397,8 +408,8 @@ function App() {
   }, [])
 
   const markSimilarGroupForDeletion = useCallback((base: MediaItem, matches: Array<{ item: MediaItem }>) => {
-    setDecisions((prev) => {
-      const next = { ...prev, [base.path]: 'keep' }
+    setDecisions((prev): Record<string, Decision> => {
+      const next: Record<string, Decision> = { ...prev, [base.path]: 'keep' }
       matches.forEach((match) => {
         next[match.item.path] = 'delete'
       })
@@ -407,7 +418,7 @@ function App() {
   }, [])
 
   const markAllSimilarForDeletion = useCallback(() => {
-    setDecisions((prev) => {
+    setDecisions((prev): Record<string, Decision> => {
       const next = { ...prev }
       similarGroups.forEach((group) => {
         next[group.base.path] = 'keep'
