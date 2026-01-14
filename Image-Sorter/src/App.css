@@ -611,6 +611,12 @@
   margin-top: 8px;
 }
 
+.similar-status {
+  display: inline-flex;
+  margin-top: 8px;
+  position: static;
+}
+
 .similar-matches {
   display: grid;
   gap: 12px;

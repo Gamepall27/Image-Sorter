@@ -651,6 +651,11 @@ function App() {
                             Löschen
                           </button>
                         </div>
+                        {decisions[group.base.path] ? (
+                          <span className={`status status-${decisions[group.base.path]} similar-status`}>
+                            {decisions[group.base.path]}
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                     <div className="similar-matches">
@@ -668,6 +673,11 @@ function App() {
                                 Löschen
                               </button>
                             </div>
+                            {decisions[match.item.path] ? (
+                              <span className={`status status-${decisions[match.item.path]} similar-status`}>
+                                {decisions[match.item.path]}
+                              </span>
+                            ) : null}
                           </div>
                         </div>
                       ))}
