@@ -609,6 +609,7 @@
 
 .similar-base .media-actions {
   margin-top: 8px;
+  flex-wrap: wrap;
 }
 
 .similar-status {

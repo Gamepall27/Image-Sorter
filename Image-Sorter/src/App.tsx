@@ -134,6 +134,7 @@ function App() {
   const [showPreviewModal, setShowPreviewModal] = useState(false)
   const [tabMode, setTabMode] = useState<TabMode>('all')
   const [scanProgress, setScanProgress] = useState({ active: false, loaded: 0, total: 0 })
+  const [similarCount, setSimilarCount] = useState(0)
 
   const duplicateHashes = useMemo(() => {
     const counts = new Map<string, number>()
@@ -151,6 +152,9 @@ function App() {
   )
 
   const similarGroups = useMemo(() => {
+    if (tabMode !== 'similar') {
+      return []
+    }
     const imageItems = items.filter((item) => item.dHash)
     const buckets = new Map<string, MediaItem[]>()
     imageItems.forEach((item) => {
@@ -181,7 +185,13 @@ function App() {
       }
     })
     return groups.sort((a, b) => b.matches.length - a.matches.length)
-  }, [items])
+  }, [items, tabMode])
+
+  useEffect(() => {
+    if (tabMode === 'similar') {
+      setSimilarCount(similarGroups.length)
+    }
+  }, [similarGroups, tabMode])
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY)
@@ -332,6 +342,16 @@ function App() {
 
   const toggleDecision = useCallback((item: MediaItem, decision: Decision) => {
     setDecisions((prev) => ({ ...prev, [item.path]: decision }))
+  }, [])
+
+  const markSimilarGroupForDeletion = useCallback((base: MediaItem, matches: Array<{ item: MediaItem }>) => {
+    setDecisions((prev) => {
+      const next = { ...prev, [base.path]: 'keep' }
+      matches.forEach((match) => {
+        next[match.item.path] = 'delete'
+      })
+      return next
+    })
   }, [])
 
   const keepCount = Object.values(decisions).filter((value) => value === 'keep').length
@@ -598,7 +618,7 @@ function App() {
                 className={`tab-button ${tabMode === 'similar' ? 'active' : ''}`}
                 onClick={() => setTabMode('similar')}
               >
-                Ähnliche ({similarGroups.length})
+                Ähnliche ({similarCount})
               </button>
             </div>
             {tabMode === 'all' ? (
@@ -649,6 +669,12 @@ function App() {
                           </button>
                           <button className="discard" onClick={() => toggleDecision(group.base, 'delete')}>
                             Löschen
+                          </button>
+                          <button
+                            className="ghost"
+                            onClick={() => markSimilarGroupForDeletion(group.base, group.matches)}
+                          >
+                            Alle außer Original löschen
                           </button>
                         </div>
                         {decisions[group.base.path] ? (
