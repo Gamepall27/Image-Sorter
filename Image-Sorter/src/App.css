@@ -578,6 +578,10 @@
   object-fit: cover;
 }
 
+.similar-base .media-actions {
+  margin-top: 8px;
+}
+
 .similar-matches {
   display: grid;
   gap: 12px;
@@ -599,6 +603,11 @@
   height: 70px;
   border-radius: 8px;
   object-fit: cover;
+}
+
+.similar-card .media-actions {
+  margin-top: 8px;
+  flex-wrap: wrap;
 }
 
 .footer {

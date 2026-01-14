@@ -569,6 +569,14 @@ function App() {
                       <div>
                         <h3>{group.base.name}</h3>
                         <p>{formatDate(group.base.modifiedAt)}</p>
+                        <div className="media-actions">
+                          <button className="keep" onClick={() => toggleDecision(group.base, 'keep')}>
+                            Behalten
+                          </button>
+                          <button className="discard" onClick={() => toggleDecision(group.base, 'delete')}>
+                            Löschen
+                          </button>
+                        </div>
                       </div>
                     </div>
                     <div className="similar-matches">
@@ -578,6 +586,14 @@ function App() {
                           <div>
                             <h4>{match.item.name}</h4>
                             <p>Ähnlichkeit: {match.score}%</p>
+                            <div className="media-actions">
+                              <button className="keep" onClick={() => toggleDecision(match.item, 'keep')}>
+                                Behalten
+                              </button>
+                              <button className="discard" onClick={() => toggleDecision(match.item, 'delete')}>
+                                Löschen
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))}
