@@ -24,6 +24,12 @@ type Filters = {
   flagged: 'all' | 'flagged'
 }
 
+type SortMode = 'date-desc' | 'date-asc' | 'name-asc' | 'size-desc'
+
+type GroupMode = 'none' | 'folder'
+
+type LayoutMode = 'grid' | 'list'
+
 const STORAGE_KEY = 'image-sorter-decisions'
 
 const formatBytes = (bytes: number) => {
@@ -63,6 +69,10 @@ function App() {
   const [filters, setFilters] = useState<Filters>(defaultFilters)
   const [activeIndex, setActiveIndex] = useState(0)
   const [trashed, setTrashed] = useState<MediaItem[]>([])
+  const [sortMode, setSortMode] = useState<SortMode>('date-desc')
+  const [groupMode, setGroupMode] = useState<GroupMode>('none')
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>('grid')
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY)
@@ -101,13 +111,44 @@ function App() {
       .filter((item) => (filters.flagged === 'flagged' ? Boolean(item.autoFlag) : true))
   }, [items, filters])
 
+  const sortedItems = useMemo(() => {
+    const list = [...filteredItems]
+    list.sort((a, b) => {
+      switch (sortMode) {
+        case 'date-asc':
+          return a.modifiedAt - b.modifiedAt
+        case 'name-asc':
+          return a.name.localeCompare(b.name)
+        case 'size-desc':
+          return b.size - a.size
+        case 'date-desc':
+        default:
+          return b.modifiedAt - a.modifiedAt
+      }
+    })
+    return list
+  }, [filteredItems, sortMode])
+
+  const groupedItems = useMemo(() => {
+    if (groupMode === 'folder') {
+      const map = new Map<string, MediaItem[]>()
+      sortedItems.forEach((item) => {
+        const group = map.get(item.folder) ?? []
+        group.push(item)
+        map.set(item.folder, group)
+      })
+      return Array.from(map.entries()).map(([title, list]) => ({ title, items: list }))
+    }
+    return [{ title: 'Alle Medien', items: sortedItems }]
+  }, [sortedItems, groupMode])
+
   useEffect(() => {
-    if (activeIndex >= filteredItems.length) {
+    if (activeIndex >= sortedItems.length) {
       setActiveIndex(0)
     }
-  }, [filteredItems, activeIndex])
+  }, [sortedItems, activeIndex])
 
-  const activeItem = filteredItems[activeIndex]
+  const activeItem = sortedItems[activeIndex]
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -119,7 +160,7 @@ function App() {
         setDecisions((prev) => ({ ...prev, [activeItem.path]: 'delete' }))
       }
       if (event.key === 'ArrowRight') {
-        setActiveIndex((prev) => Math.min(prev + 1, filteredItems.length - 1))
+        setActiveIndex((prev) => Math.min(prev + 1, sortedItems.length - 1))
       }
       if (event.key === 'ArrowLeft') {
         setActiveIndex((prev) => Math.max(prev - 1, 0))
@@ -128,7 +169,7 @@ function App() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [activeItem, filteredItems.length])
+  }, [activeItem, sortedItems.length])
 
   const handleAddFolders = async () => {
     if (!window.mediaApi) return
@@ -144,7 +185,7 @@ function App() {
           merged.push(item)
         }
       })
-      return merged.sort((a, b) => b.modifiedAt - a.modifiedAt)
+      return merged
     })
   }
 
@@ -173,6 +214,7 @@ function App() {
       })
       return next
     })
+    setShowDeleteModal(false)
   }
 
   return (
@@ -204,7 +246,12 @@ function App() {
           <div className="filter-group">
             <label>
               Zeitraum
-              <select value={filters.range} onChange={(event) => setFilters((prev) => ({ ...prev, range: event.target.value as Filters['range'] }))}>
+              <select
+                value={filters.range}
+                onChange={(event) =>
+                  setFilters((prev) => ({ ...prev, range: event.target.value as Filters['range'] }))
+                }
+              >
                 <option value="year">Letzte 12 Monate</option>
                 <option value="month">Letzte 30 Tage</option>
                 <option value="all">Alle</option>
@@ -212,7 +259,12 @@ function App() {
             </label>
             <label>
               Dateityp
-              <select value={filters.type} onChange={(event) => setFilters((prev) => ({ ...prev, type: event.target.value as Filters['type'] }))}>
+              <select
+                value={filters.type}
+                onChange={(event) =>
+                  setFilters((prev) => ({ ...prev, type: event.target.value as Filters['type'] }))
+                }
+              >
                 <option value="all">Alle Medien</option>
                 <option value="images">Fotos</option>
                 <option value="videos">Videos</option>
@@ -221,7 +273,12 @@ function App() {
             </label>
             <label>
               Dateigröße
-              <select value={filters.size} onChange={(event) => setFilters((prev) => ({ ...prev, size: event.target.value as Filters['size'] }))}>
+              <select
+                value={filters.size}
+                onChange={(event) =>
+                  setFilters((prev) => ({ ...prev, size: event.target.value as Filters['size'] }))
+                }
+              >
                 <option value="all">Alle Größen</option>
                 <option value="small">&lt; 1 MB</option>
                 <option value="medium">1 - 10 MB</option>
@@ -230,7 +287,12 @@ function App() {
             </label>
             <label>
               Automatische Hinweise
-              <select value={filters.flagged} onChange={(event) => setFilters((prev) => ({ ...prev, flagged: event.target.value as Filters['flagged'] }))}>
+              <select
+                value={filters.flagged}
+                onChange={(event) =>
+                  setFilters((prev) => ({ ...prev, flagged: event.target.value as Filters['flagged'] }))
+                }
+              >
                 <option value="all">Alle</option>
                 <option value="flagged">Nur markierte Hinweise</option>
               </select>
@@ -268,7 +330,7 @@ function App() {
           <div className="actions">
             <button className="ghost">Review-Modus</button>
             <button className="ghost">Vergleichsmodus</button>
-            <button className="primary" onClick={handleMoveToTrash}>
+            <button className="primary" onClick={() => setShowDeleteModal(true)}>
               Auswahl prüfen
             </button>
           </div>
@@ -292,65 +354,11 @@ function App() {
           </div>
         </section>
 
-        <section className="media-grid">
-          <div className="media-grid-header">
-            <h2>Chronologische Vorschau</h2>
-            <div className="grid-controls">
-              <button className="ghost">Sortierung: Datum</button>
-              <button className="ghost">Gruppieren: Ordner</button>
-              <button className="ghost">Layout: Raster</button>
-            </div>
-          </div>
-          {filteredItems.length === 0 ? (
-            <div className="empty-state">
-              <p>Keine Medien gefunden. Wähle einen Ordner aus, um die Vorschau zu starten.</p>
-            </div>
-          ) : (
-            <div className="grid">
-              {filteredItems.map((item) => (
-                <article key={item.path} className="media-card">
-                  <div className="thumb">
-                    {item.type === 'image' ? (
-                      <img src={item.fileUrl} alt={item.name} />
-                    ) : (
-                      <video src={item.fileUrl} muted />
-                    )}
-                    <span className="thumb-type">{item.type === 'image' ? 'Foto' : 'Video'}</span>
-                  </div>
-                  <div className="media-info">
-                    <div>
-                      <h3>{item.name}</h3>
-                      <p>{formatDate(item.modifiedAt)}</p>
-                    </div>
-                    <div className="meta">
-                      <span>{formatBytes(item.size)}</span>
-                      {item.autoFlag ? <span className="badge badge-flagged">{item.autoFlag}</span> : null}
-                    </div>
-                  </div>
-                  <div className="media-actions">
-                    <button className="keep" onClick={() => toggleDecision(item, 'keep')}>
-                      Behalten
-                    </button>
-                    <button className="discard" onClick={() => toggleDecision(item, 'delete')}>
-                      Löschen
-                    </button>
-                  </div>
-                  {decisions[item.path] ? (
-                    <span className={`status status-${decisions[item.path]}`}>{decisions[item.path]}</span>
-                  ) : null}
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
-
         <section className="review-mode">
           <div className="panel">
             <div className="panel-header">
               <h2>Review-Modus</h2>
-              <span>
-                {activeItem ? `Bild ${activeIndex + 1} von ${filteredItems.length}` : 'Keine Auswahl'}
-              </span>
+              <span>{activeItem ? `Bild ${activeIndex + 1} von ${sortedItems.length}` : 'Keine Auswahl'}</span>
             </div>
             {activeItem ? (
               <div className="review-content">
@@ -401,6 +409,85 @@ function App() {
           </div>
         </section>
 
+        <section className="media-grid">
+          <div className="media-grid-header">
+            <h2>Chronologische Vorschau</h2>
+            <div className="grid-controls">
+              <label className="control">
+                Sortierung
+                <select value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)}>
+                  <option value="date-desc">Datum (neu zuerst)</option>
+                  <option value="date-asc">Datum (alt zuerst)</option>
+                  <option value="name-asc">Name (A-Z)</option>
+                  <option value="size-desc">Größe (groß zuerst)</option>
+                </select>
+              </label>
+              <label className="control">
+                Gruppierung
+                <select value={groupMode} onChange={(event) => setGroupMode(event.target.value as GroupMode)}>
+                  <option value="none">Keine</option>
+                  <option value="folder">Ordner</option>
+                </select>
+              </label>
+              <label className="control">
+                Layout
+                <select value={layoutMode} onChange={(event) => setLayoutMode(event.target.value as LayoutMode)}>
+                  <option value="grid">Raster</option>
+                  <option value="list">Liste</option>
+                </select>
+              </label>
+            </div>
+          </div>
+          {sortedItems.length === 0 ? (
+            <div className="empty-state">
+              <p>Keine Medien gefunden. Wähle einen Ordner aus, um die Vorschau zu starten.</p>
+            </div>
+          ) : (
+            <div className="grouped-grid">
+              {groupedItems.map((group) => (
+                <div key={group.title} className="group-section">
+                  {groupMode !== 'none' ? <h3>{group.title}</h3> : null}
+                  <div className={`grid ${layoutMode}`}>
+                    {group.items.map((item) => (
+                      <article key={item.path} className="media-card">
+                        <div className="thumb">
+                          {item.type === 'image' ? (
+                            <img src={item.fileUrl} alt={item.name} />
+                          ) : (
+                            <video src={item.fileUrl} preload="metadata" muted />
+                          )}
+                          <span className="thumb-type">{item.type === 'image' ? 'Foto' : 'Video'}</span>
+                        </div>
+                        <div className="media-info">
+                          <div>
+                            <h3>{item.name}</h3>
+                            <p>{formatDate(item.modifiedAt)}</p>
+                          </div>
+                          <div className="meta">
+                            <span>{formatBytes(item.size)}</span>
+                            {item.autoFlag ? <span className="badge badge-flagged">{item.autoFlag}</span> : null}
+                          </div>
+                        </div>
+                        <div className="media-actions">
+                          <button className="keep" onClick={() => toggleDecision(item, 'keep')}>
+                            Behalten
+                          </button>
+                          <button className="discard" onClick={() => toggleDecision(item, 'delete')}>
+                            Löschen
+                          </button>
+                        </div>
+                        {decisions[item.path] ? (
+                          <span className={`status status-${decisions[item.path]}`}>{decisions[item.path]}</span>
+                        ) : null}
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
         <footer className="footer">
           <div>
             <h3>Zusammenfassung vor dem Löschen</h3>
@@ -411,12 +498,58 @@ function App() {
           </div>
           <div className="actions">
             <button className="ghost">Zusammenfassung anzeigen</button>
-            <button className="primary" onClick={handleMoveToTrash}>
-              In Papierkorb verschieben
+            <button className="primary" onClick={() => setShowDeleteModal(true)}>
+              Auswahl prüfen
             </button>
           </div>
         </footer>
       </div>
+
+      {showDeleteModal ? (
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal">
+            <div className="modal-header">
+              <div>
+                <h2>Lösch-Auswahl prüfen</h2>
+                <p>{deleteCandidates.length} Dateien · {formatBytes(deleteSize)} insgesamt</p>
+              </div>
+              <button className="ghost" onClick={() => setShowDeleteModal(false)}>
+                Schließen
+              </button>
+            </div>
+            {deleteCandidates.length === 0 ? (
+              <p className="empty-state">Es sind aktuell keine Dateien zum Löschen markiert.</p>
+            ) : (
+              <div className="modal-grid">
+                {deleteCandidates.map((item) => (
+                  <div key={item.path} className="modal-card">
+                    <div className="modal-thumb">
+                      {item.type === 'image' ? (
+                        <img src={item.fileUrl} alt={item.name} />
+                      ) : (
+                        <video src={item.fileUrl} preload="metadata" muted />
+                      )}
+                    </div>
+                    <div>
+                      <h4>{item.name}</h4>
+                      <p>{formatDate(item.modifiedAt)}</p>
+                      <span>{formatBytes(item.size)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="modal-actions">
+              <button className="ghost" onClick={() => setShowDeleteModal(false)}>
+                Abbrechen
+              </button>
+              <button className="primary" disabled={deleteCandidates.length === 0} onClick={handleMoveToTrash}>
+                Auswahl löschen
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

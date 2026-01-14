@@ -1,5 +1,5 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { app, BrowserWindow, dialog, ipcMain, protocol, shell } from 'electron'
+import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs/promises'
 
@@ -67,7 +67,7 @@ const scanFolder = async (folder: string) => {
       id: entry.name,
       name: entry.name,
       path: entryPath,
-      fileUrl: pathToFileURL(entryPath).toString(),
+      fileUrl: `media://${encodeURIComponent(entryPath)}`,
       size: stats.size,
       modifiedAt: stats.mtimeMs,
       type: isImage ? 'image' : 'video',
@@ -77,6 +77,14 @@ const scanFolder = async (folder: string) => {
   }
 
   return results
+}
+
+const registerMediaProtocol = () => {
+  protocol.registerFileProtocol('media', (request, callback) => {
+    const url = request.url.replace('media://', '')
+    const filePath = decodeURIComponent(url)
+    callback({ path: filePath })
+  })
 }
 
 const createWindow = () => {
@@ -89,7 +97,7 @@ const createWindow = () => {
 
   // Test active push message to Renderer-process.
   win.webContents.on('did-finish-load', () => {
-    win?.webContents.send('main-process-message', (new Date).toLocaleString())
+    win?.webContents.send('main-process-message', new Date().toLocaleString())
   })
 
   if (VITE_DEV_SERVER_URL) {
@@ -155,4 +163,7 @@ app.on('activate', () => {
   }
 })
 
-app.whenReady().then(createWindow)
+app.whenReady().then(() => {
+  registerMediaProtocol()
+  createWindow()
+})

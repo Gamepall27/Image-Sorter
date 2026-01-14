@@ -71,6 +71,11 @@
   background: #4f46e5;
 }
 
+.primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .ghost {
   background: transparent;
   color: inherit;
@@ -106,7 +111,8 @@
   color: #e2e8f0;
 }
 
-.filter-group select {
+.filter-group select,
+.grid-controls select {
   padding: 8px 10px;
   border-radius: 8px;
   border: 1px solid #334155;
@@ -218,8 +224,21 @@
 
 .grid-controls {
   display: flex;
-  gap: 8px;
+  gap: 12px;
   flex-wrap: wrap;
+}
+
+.grid-controls .control {
+  display: grid;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.grid-controls select {
+  background: #fff;
+  color: #1e1f24;
+  border: 1px solid #e2e8f0;
 }
 
 .empty-state {
@@ -230,10 +249,43 @@
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
 }
 
+.grouped-grid {
+  display: grid;
+  gap: 24px;
+}
+
+.group-section h3 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  color: #1e293b;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 16px;
+}
+
+.grid.list {
+  grid-template-columns: 1fr;
+}
+
+.grid.list .media-card {
+  grid-template-columns: 180px 1fr auto;
+  align-items: center;
+}
+
+.grid.list .thumb {
+  height: 120px;
+}
+
+.grid.list .media-actions {
+  flex-direction: column;
+}
+
+.grid.list .media-info {
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .media-card {
@@ -486,6 +538,98 @@
   color: #64748b;
 }
 
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  z-index: 10;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 20px;
+  padding: 24px;
+  max-width: 960px;
+  width: 100%;
+  max-height: 80vh;
+  overflow: hidden;
+  display: grid;
+  gap: 16px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.modal-header h2 {
+  margin: 0 0 4px;
+}
+
+.modal-header p {
+  margin: 0;
+  color: #64748b;
+}
+
+.modal-grid {
+  display: grid;
+  gap: 12px;
+  overflow-y: auto;
+  padding-right: 4px;
+  max-height: 48vh;
+}
+
+.modal-card {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 12px;
+  align-items: center;
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.modal-thumb {
+  position: relative;
+  height: 80px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #e2e8f0;
+}
+
+.modal-thumb img,
+.modal-thumb video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.modal-card h4 {
+  margin: 0 0 4px;
+}
+
+.modal-card p {
+  margin: 0 0 6px;
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.modal-card span {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
 @media (max-width: 960px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -493,5 +637,9 @@
 
   .sidebar {
     order: 2;
+  }
+
+  .grid.list .media-card {
+    grid-template-columns: 1fr;
   }
 }
