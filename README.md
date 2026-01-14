@@ -1,5 +1,6 @@
 
 Image Sorter is a cross-platform desktop app (Electron) that lets you review and sort locally stored images and videos offline. The app only accesses folders you explicitly select. No files are modified until you confirm the delete action.
+
 <img width="2559" height="1439" alt="image" src="https://github.com/user-attachments/assets/badb1bda-b09a-4b1f-b39b-409a9e1fb547" />
 
 ## Features
