@@ -136,6 +136,8 @@ function App() {
   const [scanProgress, setScanProgress] = useState({ active: false, loaded: 0, total: 0 })
   const [trashProgress, setTrashProgress] = useState({ active: false, processed: 0, total: 0 })
   const [similarCount, setSimilarCount] = useState(0)
+  const [compareModeActive, setCompareModeActive] = useState(false)
+  const [compareIndex, setCompareIndex] = useState(0)
 
   const duplicateHashes = useMemo(() => {
     const counts = new Map<string, number>()
@@ -153,7 +155,7 @@ function App() {
   )
 
   const similarGroups = useMemo(() => {
-    if (tabMode !== 'similar') {
+    if (tabMode !== 'similar' && !compareModeActive) {
       return []
     }
     const imageItems = items.filter((item) => item.dHash)
@@ -186,7 +188,7 @@ function App() {
       }
     })
     return groups.sort((a, b) => b.matches.length - a.matches.length)
-  }, [items, tabMode])
+  }, [items, tabMode, compareModeActive])
 
   useEffect(() => {
     if (tabMode === 'similar') {
@@ -365,6 +367,16 @@ function App() {
     })
   }, [])
 
+  const toggleCompareMode = useCallback(() => {
+    setCompareModeActive((prev) => {
+      const next = !prev
+      if (next) {
+        setCompareIndex(0)
+      }
+      return next
+    })
+  }, [])
+
   const keepCount = Object.values(decisions).filter((value) => value === 'keep').length
   const deleteCount = Object.values(decisions).filter((value) => value === 'delete').length
   const flaggedCount = items.filter(
@@ -508,7 +520,9 @@ function App() {
           </div>
           <div className="actions">
             <button className="ghost">Review-Modus</button>
-            <button className="ghost">Vergleichsmodus</button>
+            <button className="ghost" onClick={toggleCompareMode}>
+              Vergleichsmodus {compareModeActive ? 'beenden' : 'starten'}
+            </button>
             <button className="primary" onClick={() => setShowDeleteModal(true)}>
               Auswahl prüfen
             </button>
@@ -605,11 +619,97 @@ function App() {
           <div className="panel">
             <div className="panel-header">
               <h2>Vergleichsmodus</h2>
-              <span>Ähnlichkeitserkennung folgt</span>
+              <span>{compareModeActive ? `Gruppe ${compareIndex + 1} von ${similarGroups.length}` : 'Inaktiv'}</span>
             </div>
-            <div className="compare-grid empty">
-              <p>Der Vergleichsmodus wird aktiviert, sobald ähnliche Medien erkannt werden.</p>
-            </div>
+            {compareModeActive ? (
+              similarGroups.length === 0 ? (
+                <div className="compare-grid empty">
+                  <p>Keine ähnlichen Medien gefunden. Füge einen Ordner hinzu oder wechsle in den Ähnliche-Tab.</p>
+                </div>
+              ) : (
+                <div className="compare-grid">
+                  <div className="compare-controls">
+                    <button
+                      className="ghost"
+                      onClick={() => setCompareIndex((prev) => Math.max(prev - 1, 0))}
+                      disabled={compareIndex === 0}
+                    >
+                      Zurück
+                    </button>
+                    <button
+                      className="ghost"
+                      onClick={() =>
+                        setCompareIndex((prev) => Math.min(prev + 1, similarGroups.length - 1))
+                      }
+                      disabled={compareIndex >= similarGroups.length - 1}
+                    >
+                      Weiter
+                    </button>
+                    <button
+                      className="ghost"
+                      onClick={() =>
+                        markSimilarGroupForDeletion(similarGroups[compareIndex].base, similarGroups[compareIndex].matches)
+                      }
+                    >
+                      Alle außer Original löschen
+                    </button>
+                  </div>
+                  <div className="compare-cards">
+                    <div className="compare-card">
+                      <div className="compare-thumb">
+                        <img
+                          src={similarGroups[compareIndex].base.fileUrl}
+                          alt={similarGroups[compareIndex].base.name}
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      </div>
+                      <div>
+                        <h4>{similarGroups[compareIndex].base.name}</h4>
+                        <p>Original</p>
+                        <div className="media-actions">
+                          <button
+                            className="keep"
+                            onClick={() => toggleDecision(similarGroups[compareIndex].base, 'keep')}
+                          >
+                            Behalten
+                          </button>
+                          <button
+                            className="discard"
+                            onClick={() => toggleDecision(similarGroups[compareIndex].base, 'delete')}
+                          >
+                            Löschen
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    {similarGroups[compareIndex].matches.map((match) => (
+                      <div key={match.item.path} className="compare-card">
+                        <div className="compare-thumb">
+                          <img src={match.item.fileUrl} alt={match.item.name} loading="lazy" decoding="async" />
+                        </div>
+                        <div>
+                          <h4>{match.item.name}</h4>
+                          <p>Ähnlichkeit: {match.score}%</p>
+                          <div className="media-actions">
+                            <button className="keep" onClick={() => toggleDecision(match.item, 'keep')}>
+                              Behalten
+                            </button>
+                            <button className="discard" onClick={() => toggleDecision(match.item, 'delete')}>
+                              Löschen
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            ) : (
+              <div className="compare-grid empty">
+                <p>Starte den Vergleichsmodus, um ähnliche Bilder nebeneinander zu prüfen.</p>
+              </div>
+            )}
           </div>
         </section>
 
