@@ -385,7 +385,6 @@ function App() {
         if (!existing.has(item.path)) {
           merged.push(item)
         }
-        console.log(`Gelesen: ${item.path}`)
       })
       return merged
     })
@@ -447,9 +446,6 @@ function App() {
     const result = await window.mediaApi.moveToTrash(deleteCandidates.map((item) => item.path))
     if (!result) return
 
-    result.trashed.forEach((path) => {
-      console.log(`Gelöscht: ${path}`)
-    })
     setTrashed((prev) => [...prev, ...deleteCandidates.filter((item) => result.trashed.includes(item.path))])
     setItems((prev) => prev.filter((item) => !result.trashed.includes(item.path)))
     setDecisions((prev) => {
