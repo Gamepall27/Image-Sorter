@@ -24,15 +24,9 @@
         "arch": [
           "x64"
         ]
-      },
-      {
-        "target": "portable",
-        "arch": [
-          "x64"
-        ]
       }
     ],
-    "artifactName": "${productName}-Windows-${version}-${arch}.${ext}"
+    "artifactName": "${productName}-Windows-${version}-Setup.${ext}"
   },
   "nsis": {
     "oneClick": false,
