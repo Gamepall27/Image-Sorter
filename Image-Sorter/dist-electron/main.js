@@ -47,8 +47,8 @@ const I = /* @__PURE__ */ new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".b
 }, F = async (e, r) => {
   const o = a.extname(e).toLowerCase(), n = I.has(o), i = _.has(o);
   if (!n && !i) return null;
-  const s = await u.stat(e), t = e.toLowerCase().includes("screenshot") ? "Screenshot" : s.size < 200 * 1024 ? "Sehr klein" : void 0, c = n ? await L(e) : void 0, d = n ? await C(e) : void 0;
-  return console.log(`Gelesen: ${e}`), {
+  const s = await u.stat(e), t = e.toLowerCase().includes("screenshot") ? "Screenshot" : s.size < 200 * 1024 ? "Very small" : void 0, c = n ? await L(e) : void 0, d = n ? await C(e) : void 0;
+  return console.log(`Read: ${e}`), {
     id: a.basename(e),
     name: a.basename(e),
     path: e,
@@ -109,7 +109,7 @@ w.handle("move-to-trash", async (e, r) => {
   e.sender.send("trash-progress", { processed: s, total: i });
   for (const t of r) {
     try {
-      await P.trashItem(t), console.log(`Gelöscht: ${t}`), o.push(t);
+      await P.trashItem(t), console.log(`Deleted: ${t}`), o.push(t);
     } catch {
       n.push(t);
     }

@@ -105,13 +105,13 @@ const buildMediaItem = async (entryPath: string, folder: string): Promise<MediaI
   const autoFlag = entryPath.toLowerCase().includes('screenshot')
     ? 'Screenshot'
     : stats.size < 200 * 1024
-      ? 'Sehr klein'
+      ? 'Very small'
       : undefined
 
   const hash = isImage ? await hashFile(entryPath) : undefined
   const dHash = isImage ? await computeDHash(entryPath) : undefined
 
-  console.log(`Gelesen: ${entryPath}`)
+  console.log(`Read: ${entryPath}`)
   return {
     id: path.basename(entryPath),
     name: path.basename(entryPath),
@@ -220,7 +220,7 @@ ipcMain.handle('move-to-trash', async (event, paths: string[]) => {
   for (const filePath of paths) {
     try {
       await shell.trashItem(filePath)
-      console.log(`Gelöscht: ${filePath}`)
+      console.log(`Deleted: ${filePath}`)
       trashed.push(filePath)
     } catch {
       failed.push(filePath)

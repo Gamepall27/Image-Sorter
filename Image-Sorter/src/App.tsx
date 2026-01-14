@@ -63,7 +63,7 @@ const MediaCard = memo(function MediaCard({ item, decision, badgeLabel, onToggle
         ) : (
           <video src={item.fileUrl} preload="metadata" muted />
         )}
-        <span className="thumb-type">{item.type === 'image' ? 'Foto' : 'Video'}</span>
+        <span className="thumb-type">{item.type === 'image' ? 'Photo' : 'Video'}</span>
       </div>
       <div className="media-info">
         <div>
@@ -77,10 +77,10 @@ const MediaCard = memo(function MediaCard({ item, decision, badgeLabel, onToggle
       </div>
       <div className="media-actions">
         <button className="keep" onClick={() => onToggle(item, 'keep')}>
-          Behalten
+          Keep
         </button>
         <button className="discard" onClick={() => onToggle(item, 'delete')}>
-          Löschen
+          Delete
         </button>
       </div>
       {decision ? <span className={`status status-${decision}`}>{decision}</span> : null}
@@ -102,7 +102,7 @@ const formatBytes = (bytes: number) => {
 }
 
 const formatDate = (timestamp: number) => {
-  return new Date(timestamp).toLocaleString('de-DE', {
+  return new Date(timestamp).toLocaleString('en-US', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -343,7 +343,7 @@ function App() {
       })
       return Array.from(map.entries()).map(([title, list]) => ({ title, items: list }))
     }
-    return [{ title: 'Alle Medien', items: sortedItems }]
+    return [{ title: 'All media', items: sortedItems }]
   }, [sortedItems, groupMode])
 
   const visibleItems = useMemo(() => {
@@ -396,7 +396,7 @@ function App() {
         if (!existing.has(item.path)) {
           merged.push(item)
         }
-        console.log(`Gelesen: ${item.path}`)
+        console.log(`Read: ${item.path}`)
       })
       return merged
     })
@@ -459,7 +459,7 @@ function App() {
     if (!result) return
 
     result.trashed.forEach((path) => {
-      console.log(`Gelöscht: ${path}`)
+      console.log(`Deleted: ${path}`)
     })
     setTrashed((prev) => [...prev, ...deleteCandidates.filter((item) => result.trashed.includes(item.path))])
     setItems((prev) => prev.filter((item) => !result.trashed.includes(item.path)))
@@ -486,12 +486,12 @@ function App() {
         </div>
 
         <div className="section">
-          <p className="section-title">Ordner</p>
+          <p className="section-title">Folders</p>
           <button className="primary" onClick={handleAddFolders}>
-            Ordner hinzufügen
+            Add folders
           </button>
           <ul className="folder-list">
-            {folders.length === 0 ? <li>Keine Ordner ausgewählt</li> : null}
+            {folders.length === 0 ? <li>No folders selected</li> : null}
             {folders.map((folder) => (
               <li key={folder}>{folder}</li>
             ))}
@@ -499,80 +499,80 @@ function App() {
         </div>
 
         <div className="section">
-          <p className="section-title">Filter</p>
+          <p className="section-title">Filters</p>
           <div className="filter-group">
             <label>
-              Zeitraum
+              Date range
               <select
                 value={filters.range}
                 onChange={(event) =>
                   setFilters((prev) => ({ ...prev, range: event.target.value as Filters['range'] }))
                 }
               >
-                <option value="year">Letzte 12 Monate</option>
-                <option value="month">Letzte 30 Tage</option>
-                <option value="all">Alle</option>
+                <option value="year">Last 12 months</option>
+                <option value="month">Last 30 days</option>
+                <option value="all">All time</option>
               </select>
             </label>
             <label>
-              Dateityp
+              Media type
               <select
                 value={filters.type}
                 onChange={(event) =>
                   setFilters((prev) => ({ ...prev, type: event.target.value as Filters['type'] }))
                 }
               >
-                <option value="all">Alle Medien</option>
-                <option value="images">Fotos</option>
+                <option value="all">All media</option>
+                <option value="images">Photos</option>
                 <option value="videos">Videos</option>
                 <option value="screenshots">Screenshots</option>
               </select>
             </label>
             <label>
-              Dateigröße
+              File size
               <select
                 value={filters.size}
                 onChange={(event) =>
                   setFilters((prev) => ({ ...prev, size: event.target.value as Filters['size'] }))
                 }
               >
-                <option value="all">Alle Größen</option>
+                <option value="all">All sizes</option>
                 <option value="small">&lt; 1 MB</option>
                 <option value="medium">1 - 10 MB</option>
                 <option value="large">&gt; 10 MB</option>
               </select>
             </label>
             <label>
-              Automatische Hinweise
+              Automatic flags
               <select
                 value={filters.flagged}
                 onChange={(event) =>
                   setFilters((prev) => ({ ...prev, flagged: event.target.value as Filters['flagged'] }))
                 }
               >
-                <option value="all">Alle</option>
-                <option value="flagged">Nur markierte Hinweise</option>
+                <option value="all">All</option>
+                <option value="flagged">Only flagged items</option>
               </select>
             </label>
           </div>
         </div>
 
         <div className="section stats">
-          <p className="section-title">Statistiken</p>
+          <p className="section-title">Stats</p>
           <div className="stat">
-            <span>Medien gesamt</span>
+            <span>Total media</span>
             <strong>{items.length}</strong>
           </div>
           <div className="stat">
-            <span>Markiert behalten</span>
+            <span>Marked keep</span>
             <strong>{keepCount}</strong>
           </div>
           <div className="stat">
-            <span>Markiert löschen</span>
+            <span>Marked delete</span>
             <strong>{deleteCount}</strong>
           </div>
           <div className="stat">
-            <span>Pot. unnötig</span>
+            <span>Potentially redundant</span>
             <strong>{flaggedCount}</strong>
           </div>
         </div>
@@ -581,25 +581,25 @@ function App() {
       <div className="main-area">
         <header className="topbar">
           <div>
-            <h1>Medienübersicht</h1>
-            <p>Chronologische Ansicht · Offline · Keine Dateien verändert</p>
+            <h1>Media overview</h1>
+            <p>Chronological view · Offline · No files changed</p>
           </div>
           <div className="actions">
-            <button className="ghost">Review-Modus</button>
+            <button className="ghost">Review mode</button>
             <button className="ghost" onClick={toggleCompareMode}>
-              Vergleichsmodus {compareModeActive ? 'beenden' : 'starten'}
+              Compare mode {compareModeActive ? 'stop' : 'start'}
             </button>
             <button className="primary" onClick={() => setShowDeleteModal(true)}>
-              Auswahl prüfen
+              Review selection
             </button>
           </div>
         </header>
         {scanProgress.active ? (
           <div className="scan-progress">
             <div>
-              <strong>Lade Medien</strong>
+              <strong>Loading media</strong>
               <span>
-                {scanProgress.loaded} von {scanProgress.total || '…'}
+                {scanProgress.loaded} of {scanProgress.total || '…'}
               </span>
             </div>
             <div className="progress-bar">
@@ -616,27 +616,27 @@ function App() {
         ) : null}
         <section className="overview">
           <div className="overview-card">
-            <p>Automatisch markiert</p>
-            <h3>Screenshots &amp; sehr kleine Dateien</h3>
-            <span>Diese Dateien werden nur vorgeschlagen, nie automatisch gelöscht.</span>
+            <p>Automatically flagged</p>
+            <h3>Screenshots &amp; very small files</h3>
+            <span>These files are suggested only and never deleted automatically.</span>
           </div>
           <div className="overview-card highlight">
-            <p>Papierkorb</p>
-            <h3>{trashed.length} Dateien im Papierkorb</h3>
-            <span>Gelöschte Dateien bleiben wiederherstellbar.</span>
+            <p>Trash</p>
+            <h3>{trashed.length} files in the trash</h3>
+            <span>Deleted files remain recoverable.</span>
           </div>
           <div className="overview-card">
-            <p>Freigabe-Schätzung</p>
-            <h3>{formatBytes(deleteSize)} möglich</h3>
-            <span>Basierend auf der aktuellen Lösch-Markierung.</span>
+            <p>Space estimate</p>
+            <h3>{formatBytes(deleteSize)} possible</h3>
+            <span>Based on the current delete selection.</span>
           </div>
         </section>
 
         <section className="review-mode">
           <div className="panel">
             <div className="panel-header">
-              <h2>Review-Modus</h2>
-              <span>{activeItem ? `Bild ${activeIndex + 1} von ${visibleItems.length}` : 'Keine Auswahl'}</span>
+              <h2>Review mode</h2>
+              <span>{activeItem ? `Image ${activeIndex + 1} of ${visibleItems.length}` : 'No selection'}</span>
             </div>
             {activeItem ? (
               <div className="review-content">
@@ -656,41 +656,41 @@ function App() {
                 <div className="review-details">
                   <h3>{activeItem.name}</h3>
                   <ul>
-                    <li>Aufnahme: {formatDate(activeItem.modifiedAt)}</li>
-                    <li>Größe: {formatBytes(activeItem.size)}</li>
-                    <li>Ordner: {activeItem.folder}</li>
-                    <li>Hinweis: {activeItem.autoFlag ?? 'keiner'}</li>
+                    <li>Taken: {formatDate(activeItem.modifiedAt)}</li>
+                    <li>Size: {formatBytes(activeItem.size)}</li>
+                    <li>Folder: {activeItem.folder}</li>
+                    <li>Flag: {activeItem.autoFlag ?? 'none'}</li>
                   </ul>
                   <div className="shortcut-list">
                     <div>
-                      <kbd>K</kbd> behalten
+                      <kbd>K</kbd> keep
                     </div>
                     <div>
-                      <kbd>L</kbd> löschen
+                      <kbd>L</kbd> delete
                     </div>
                     <div>
-                      <kbd>→</kbd> nächstes
+                      <kbd>→</kbd> next
                     </div>
                     <div>
-                      <kbd>←</kbd> zurück
+                      <kbd>←</kbd> previous
                     </div>
                   </div>
                 </div>
               </div>
             ) : (
-              <p className="empty-state">Wähle einen Ordner, um den Review-Modus zu starten.</p>
+              <p className="empty-state">Choose a folder to start review mode.</p>
             )}
           </div>
 
           <div className="panel">
             <div className="panel-header">
-              <h2>Vergleichsmodus</h2>
-              <span>{compareModeActive ? `Gruppe ${compareIndex + 1} von ${similarGroups.length}` : 'Inaktiv'}</span>
+              <h2>Compare mode</h2>
+              <span>{compareModeActive ? `Group ${compareIndex + 1} of ${similarGroups.length}` : 'Inactive'}</span>
             </div>
             {compareModeActive ? (
               similarGroups.length === 0 ? (
                 <div className="compare-grid empty">
-                  <p>Keine ähnlichen Medien gefunden. Füge einen Ordner hinzu oder wechsle in den Ähnliche-Tab.</p>
+                  <p>No similar media found. Add a folder or switch to the Similar tab.</p>
                 </div>
               ) : (
                 <div className="compare-grid">
@@ -700,7 +700,7 @@ function App() {
                       onClick={() => setCompareIndex((prev) => Math.max(prev - 1, 0))}
                       disabled={compareIndex === 0}
                     >
-                      Zurück
+                      Back
                     </button>
                     <button
                       className="ghost"
@@ -709,7 +709,7 @@ function App() {
                       }
                       disabled={compareIndex >= similarGroups.length - 1}
                     >
-                      Weiter
+                      Next
                     </button>
                     <button
                       className="ghost"
@@ -717,7 +717,7 @@ function App() {
                         markSimilarGroupForDeletion(similarGroups[compareIndex].base, similarGroups[compareIndex].matches)
                       }
                     >
-                      Alle außer Original löschen
+                      Delete all except original
                     </button>
                   </div>
                   <div className="compare-cards">
@@ -738,13 +738,13 @@ function App() {
                             className="keep"
                             onClick={() => toggleDecision(similarGroups[compareIndex].base, 'keep')}
                           >
-                            Behalten
+                            Keep
                           </button>
                           <button
                             className="discard"
                             onClick={() => toggleDecision(similarGroups[compareIndex].base, 'delete')}
                           >
-                            Löschen
+                            Delete
                           </button>
                         </div>
                       </div>
@@ -756,13 +756,13 @@ function App() {
                         </div>
                         <div>
                           <h4>{match.item.name}</h4>
-                          <p>Ähnlichkeit: {match.score}%</p>
+                          <p>Similarity: {match.score}%</p>
                           <div className="media-actions">
                             <button className="keep" onClick={() => toggleDecision(match.item, 'keep')}>
-                              Behalten
+                              Keep
                             </button>
                             <button className="discard" onClick={() => toggleDecision(match.item, 'delete')}>
-                              Löschen
+                              Delete
                             </button>
                           </div>
                         </div>
@@ -773,7 +773,7 @@ function App() {
               )
             ) : (
               <div className="compare-grid empty">
-                <p>Starte den Vergleichsmodus, um ähnliche Bilder nebeneinander zu prüfen.</p>
+                <p>Start compare mode to review similar images side by side.</p>
               </div>
             )}
           </div>
@@ -781,47 +781,47 @@ function App() {
 
         <section className="media-grid">
           <div className="media-grid-header">
-            <h2>Chronologische Vorschau</h2>
+            <h2>Chronological preview</h2>
             <div className="tab-controls">
               <button className={`tab-button ${tabMode === 'all' ? 'active' : ''}`} onClick={() => setTabMode('all')}>
-                Alle Medien
+                All media
               </button>
               <button
                 className={`tab-button ${tabMode === 'duplicates' ? 'active' : ''}`}
                 onClick={() => setTabMode('duplicates')}
               >
-                Duplikate ({duplicateItems.length})
+                Duplicates ({duplicateItems.length})
               </button>
               <button
                 className={`tab-button ${tabMode === 'similar' ? 'active' : ''}`}
                 onClick={() => setTabMode('similar')}
               >
-                Ähnliche ({similarCount})
+                Similar ({similarCount})
               </button>
             </div>
             {tabMode === 'all' ? (
               <div className="grid-controls">
                 <label className="control">
-                  Sortierung
+                  Sort
                   <select value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)}>
-                    <option value="date-desc">Datum (neu zuerst)</option>
-                    <option value="date-asc">Datum (alt zuerst)</option>
+                    <option value="date-desc">Date (newest first)</option>
+                    <option value="date-asc">Date (oldest first)</option>
                     <option value="name-asc">Name (A-Z)</option>
-                    <option value="size-desc">Größe (groß zuerst)</option>
+                    <option value="size-desc">Size (largest first)</option>
                   </select>
                 </label>
                 <label className="control">
-                  Gruppierung
+                  Group
                   <select value={groupMode} onChange={(event) => setGroupMode(event.target.value as GroupMode)}>
-                    <option value="none">Keine</option>
-                    <option value="folder">Ordner</option>
+                    <option value="none">None</option>
+                    <option value="folder">Folder</option>
                   </select>
                 </label>
                 <label className="control">
                   Layout
                   <select value={layoutMode} onChange={(event) => setLayoutMode(event.target.value as LayoutMode)}>
-                    <option value="grid">Raster</option>
-                    <option value="list">Liste</option>
+                    <option value="grid">Grid</option>
+                    <option value="list">List</option>
                   </select>
                 </label>
               </div>
@@ -831,15 +831,15 @@ function App() {
             <div className="similar-list">
               {similarGroups.length === 0 ? (
                 <div className="empty-state">
-                  <p>Keine ähnlichen Bilder gefunden.</p>
+                  <p>No similar images found.</p>
                 </div>
               ) : (
                 <>
                   <div className="similar-toolbar">
                     <button className="primary" onClick={markAllSimilarForDeletion}>
-                      Alle ähnlichen löschen
+                      Delete all similar
                     </button>
-                    <span>{similarGroups.length} Gruppen gefunden</span>
+                    <span>{similarGroups.length} groups found</span>
                   </div>
                   {similarGroups.map((group) => (
                     <div key={group.base.path} className="similar-group">
@@ -850,16 +850,16 @@ function App() {
                           <p>{formatDate(group.base.modifiedAt)}</p>
                           <div className="media-actions">
                             <button className="keep" onClick={() => toggleDecision(group.base, 'keep')}>
-                              Behalten
+                              Keep
                             </button>
                             <button className="discard" onClick={() => toggleDecision(group.base, 'delete')}>
-                              Löschen
+                              Delete
                             </button>
                             <button
                               className="ghost"
                               onClick={() => markSimilarGroupForDeletion(group.base, group.matches)}
                             >
-                              Alle außer Original löschen
+                              Delete all except original
                             </button>
                           </div>
                           {decisions[group.base.path] ? (
@@ -875,13 +875,13 @@ function App() {
                             <img src={match.item.fileUrl} alt={match.item.name} loading="lazy" decoding="async" />
                             <div>
                               <h4>{match.item.name}</h4>
-                              <p>Ähnlichkeit: {match.score}%</p>
+                              <p>Similarity: {match.score}%</p>
                               <div className="media-actions">
                                 <button className="keep" onClick={() => toggleDecision(match.item, 'keep')}>
-                                  Behalten
+                                  Keep
                                 </button>
                                 <button className="discard" onClick={() => toggleDecision(match.item, 'delete')}>
-                                  Löschen
+                                  Delete
                                 </button>
                               </div>
                               {decisions[match.item.path] ? (
@@ -900,18 +900,22 @@ function App() {
             </div>
           ) : visibleItems.length === 0 ? (
             <div className="empty-state">
-              <p>Keine Medien gefunden. Wähle einen Ordner aus, um die Vorschau zu starten.</p>
+              <p>No media found. Select a folder to start the preview.</p>
             </div>
           ) : (
             <div className="grouped-grid">
-              {(tabMode === 'duplicates' ? [{ title: 'Duplikate', items: duplicateItems }] : groupedItems).map(
+              {(tabMode === 'duplicates' ? [{ title: 'Duplicates', items: duplicateItems }] : groupedItems).map(
                 (group) => (
                   <div key={group.title} className="group-section">
                     {groupMode !== 'none' ? <h3>{group.title}</h3> : null}
                     <div className={`grid ${layoutMode}`}>
                       {group.items.map((item) => {
                         const isDuplicate = item.hash ? duplicateHashes.has(item.hash) : false
-                        const badgeLabel = isDuplicate ? 'Duplikat' : item.autoFlag
+                        const badgeLabel = isDuplicate
+                          ? 'Duplicate'
+                          : item.autoFlag
+                              ?.replace(/dublikat|duplikat/gi, 'Duplicate')
+                              .replace(/ähnlich/gi, 'Similar')
 
                         return (
                           <MediaCard
@@ -933,16 +937,15 @@ function App() {
 
         <footer className="footer">
           <div>
-            <h3>Zusammenfassung vor dem Löschen</h3>
+            <h3>Summary before deletion</h3>
             <p>
-              {deleteCount} Dateien markiert · {formatBytes(deleteSize)} Speicherfreigabe · {trashed.length}{' '}
-              Dateien im Papierkorb
+              {deleteCount} files marked · {formatBytes(deleteSize)} storage to free · {trashed.length} files in the trash
             </p>
           </div>
           <div className="actions">
-            <button className="ghost">Zusammenfassung anzeigen</button>
+            <button className="ghost">View summary</button>
             <button className="primary" onClick={() => setShowDeleteModal(true)}>
-              Auswahl prüfen
+              Review selection
             </button>
           </div>
         </footer>
@@ -953,15 +956,15 @@ function App() {
           <div className="modal">
             <div className="modal-header">
               <div>
-                <h2>Lösch-Auswahl prüfen</h2>
-                <p>{deleteCandidates.length} Dateien · {formatBytes(deleteSize)} insgesamt</p>
+                <h2>Review delete selection</h2>
+                <p>{deleteCandidates.length} files · {formatBytes(deleteSize)} total</p>
               </div>
               <button className="ghost" onClick={() => setShowDeleteModal(false)}>
-                Schließen
+                Close
               </button>
             </div>
             {deleteCandidates.length === 0 ? (
-              <p className="empty-state">Es sind aktuell keine Dateien zum Löschen markiert.</p>
+              <p className="empty-state">There are currently no files marked for deletion.</p>
             ) : (
               <div className="modal-grid">
                 {deleteCandidates.map((item) => (
@@ -984,18 +987,18 @@ function App() {
             )}
             <div className="modal-actions">
               <button className="ghost" onClick={() => setShowDeleteModal(false)}>
-                Abbrechen
+                Cancel
               </button>
               <button className="primary" disabled={deleteCandidates.length === 0} onClick={handleMoveToTrash}>
-                Auswahl löschen
+                Delete selection
               </button>
             </div>
             {trashProgress.active ? (
               <div className="scan-progress modal-progress">
                 <div>
-                  <strong>Verschiebe in Papierkorb</strong>
+                  <strong>Moving to trash</strong>
                   <span>
-                    {trashProgress.processed} von {trashProgress.total || '…'}
+                    {trashProgress.processed} of {trashProgress.total || '…'}
                   </span>
                 </div>
                 <div className="progress-bar">
@@ -1020,10 +1023,10 @@ function App() {
             <div className="modal-header">
               <div>
                 <h2>{activeItem.name}</h2>
-                <p>Vollansicht</p>
+                <p>Full view</p>
               </div>
               <button className="ghost" onClick={() => setShowPreviewModal(false)}>
-                Schließen
+                Close
               </button>
             </div>
             <div className="preview-content">
