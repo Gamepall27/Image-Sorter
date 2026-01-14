@@ -1,9 +1,9 @@
 // @see - https://www.electron.build/configuration/configuration
 {
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
-  "appId": "com.imagesorter.app",
+  "appId": "YourAppID",
   "asar": true,
-  "productName": "Image Sorter",
+  "productName": "YourAppName",
   "directories": {
     "output": "release/${version}"
   },
