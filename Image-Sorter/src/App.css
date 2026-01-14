@@ -222,6 +222,28 @@
   font-size: 1.4rem;
 }
 
+.tab-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tab-button {
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #1e1f24;
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.tab-button.active {
+  background: #6366f1;
+  border-color: #6366f1;
+  color: #fff;
+}
+
 .grid-controls {
   display: flex;
   gap: 12px;
@@ -296,6 +318,8 @@
   gap: 12px;
   position: relative;
   box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
+  content-visibility: auto;
+  contain-intrinsic-size: 300px;
 }
 
 .thumb {
@@ -524,6 +548,57 @@
   background: #f8fafc;
   border-radius: 12px;
   color: #64748b;
+}
+
+.similar-list {
+  display: grid;
+  gap: 16px;
+}
+
+.similar-group {
+  background: #fff;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+  display: grid;
+  gap: 16px;
+}
+
+.similar-base {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.similar-base img {
+  width: 120px;
+  height: 90px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+.similar-matches {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.similar-card {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 10px;
+  align-items: center;
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.similar-card img {
+  width: 90px;
+  height: 70px;
+  border-radius: 8px;
+  object-fit: cover;
 }
 
 .footer {

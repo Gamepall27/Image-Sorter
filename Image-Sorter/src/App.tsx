@@ -14,6 +14,7 @@ type MediaItem = {
   folder: string
   autoFlag?: string
   hash?: string
+  dHash?: string
 }
 
 type Decision = 'keep' | 'delete'
@@ -30,6 +31,8 @@ type SortMode = 'date-desc' | 'date-asc' | 'name-asc' | 'size-desc'
 type GroupMode = 'none' | 'folder'
 
 type LayoutMode = 'grid' | 'list'
+
+type TabMode = 'all' | 'duplicates' | 'similar'
 
 const STORAGE_KEY = 'image-sorter-decisions'
 
@@ -63,6 +66,19 @@ const defaultFilters: Filters = {
   flagged: 'all',
 }
 
+const hammingDistance = (a: string, b: string) => {
+  const maxLen = Math.max(a.length, b.length)
+  const aBits = BigInt(`0x${a.padStart(maxLen, '0')}`)
+  const bBits = BigInt(`0x${b.padStart(maxLen, '0')}`)
+  let x = aBits ^ bBits
+  let count = 0
+  while (x > 0n) {
+    count += Number(x & 1n)
+    x >>= 1n
+  }
+  return count
+}
+
 function App() {
   const [folders, setFolders] = useState<string[]>([])
   const [items, setItems] = useState<MediaItem[]>([])
@@ -75,6 +91,7 @@ function App() {
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('grid')
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [showPreviewModal, setShowPreviewModal] = useState(false)
+  const [tabMode, setTabMode] = useState<TabMode>('all')
 
   const duplicateHashes = useMemo(() => {
     const counts = new Map<string, number>()
@@ -84,6 +101,44 @@ function App() {
       }
     })
     return new Set(Array.from(counts.entries()).filter(([, count]) => count > 1).map(([hash]) => hash))
+  }, [items])
+
+  const duplicateItems = useMemo(
+    () => items.filter((item) => (item.hash ? duplicateHashes.has(item.hash) : false)),
+    [items, duplicateHashes],
+  )
+
+  const similarGroups = useMemo(() => {
+    const imageItems = items.filter((item) => item.dHash)
+    const buckets = new Map<string, MediaItem[]>()
+    imageItems.forEach((item) => {
+      const key = item.dHash?.slice(0, 4) ?? 'misc'
+      const group = buckets.get(key) ?? []
+      group.push(item)
+      buckets.set(key, group)
+    })
+    const groups: Array<{ base: MediaItem; matches: Array<{ item: MediaItem; score: number }> }> = []
+    const threshold = 10
+    buckets.forEach((bucket) => {
+      for (let i = 0; i < bucket.length; i += 1) {
+        const base = bucket[i]
+        if (!base.dHash) continue
+        const matches: Array<{ item: MediaItem; score: number }> = []
+        for (let j = i + 1; j < bucket.length; j += 1) {
+          const candidate = bucket[j]
+          if (!candidate.dHash) continue
+          const distance = hammingDistance(base.dHash, candidate.dHash)
+          if (distance <= threshold) {
+            const score = Math.round((1 - distance / 64) * 100)
+            matches.push({ item: candidate, score })
+          }
+        }
+        if (matches.length > 0) {
+          groups.push({ base, matches })
+        }
+      }
+    })
+    return groups.sort((a, b) => b.matches.length - a.matches.length)
   }, [items])
 
   useEffect(() => {
@@ -122,7 +177,9 @@ function App() {
       })
       .filter((item) =>
         filters.flagged === 'flagged'
-          ? Boolean(item.autoFlag) || (item.hash ? duplicateHashes.has(item.hash) : false)
+          ? Boolean(item.autoFlag) ||
+            (item.hash ? duplicateHashes.has(item.hash) : false) ||
+            Boolean(item.dHash)
           : true,
       )
   }, [items, filters, duplicateHashes])
@@ -165,13 +222,20 @@ function App() {
     return [{ title: 'Alle Medien', items: sortedItems }]
   }, [sortedItems, groupMode])
 
+  const visibleItems = useMemo(() => {
+    if (tabMode === 'duplicates') {
+      return duplicateItems
+    }
+    return sortedItems
+  }, [tabMode, duplicateItems, sortedItems])
+
   useEffect(() => {
-    if (activeIndex >= sortedItems.length) {
+    if (activeIndex >= visibleItems.length) {
       setActiveIndex(0)
     }
-  }, [sortedItems, activeIndex])
+  }, [visibleItems, activeIndex])
 
-  const activeItem = sortedItems[activeIndex]
+  const activeItem = visibleItems[activeIndex]
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -183,7 +247,7 @@ function App() {
         setDecisions((prev) => ({ ...prev, [activeItem.path]: 'delete' }))
       }
       if (event.key === 'ArrowRight') {
-        setActiveIndex((prev) => Math.min(prev + 1, sortedItems.length - 1))
+        setActiveIndex((prev) => Math.min(prev + 1, visibleItems.length - 1))
       }
       if (event.key === 'ArrowLeft') {
         setActiveIndex((prev) => Math.max(prev - 1, 0))
@@ -192,7 +256,7 @@ function App() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [activeItem, sortedItems.length])
+  }, [activeItem, visibleItems.length])
 
   const handleAddFolders = async () => {
     if (!window.mediaApi) return
@@ -219,7 +283,10 @@ function App() {
   const keepCount = Object.values(decisions).filter((value) => value === 'keep').length
   const deleteCount = Object.values(decisions).filter((value) => value === 'delete').length
   const flaggedCount = items.filter(
-    (item) => item.autoFlag || (item.hash ? duplicateHashes.has(item.hash) : false),
+    (item) =>
+      item.autoFlag ||
+      (item.hash ? duplicateHashes.has(item.hash) : false) ||
+      Boolean(item.dHash),
   ).length
 
   const deleteCandidates = items.filter((item) => decisions[item.path] === 'delete')
@@ -383,7 +450,7 @@ function App() {
           <div className="panel">
             <div className="panel-header">
               <h2>Review-Modus</h2>
-              <span>{activeItem ? `Bild ${activeIndex + 1} von ${sortedItems.length}` : 'Keine Auswahl'}</span>
+              <span>{activeItem ? `Bild ${activeIndex + 1} von ${visibleItems.length}` : 'Keine Auswahl'}</span>
             </div>
             {activeItem ? (
               <div className="review-content">
@@ -394,7 +461,7 @@ function App() {
                       className="preview-button"
                       onClick={() => setShowPreviewModal(true)}
                     >
-                      <img src={activeItem.fileUrl} alt={activeItem.name} />
+                      <img src={activeItem.fileUrl} alt={activeItem.name} loading="lazy" decoding="async" />
                     </button>
                   ) : (
                     <video src={activeItem.fileUrl} controls />
@@ -443,83 +510,135 @@ function App() {
         <section className="media-grid">
           <div className="media-grid-header">
             <h2>Chronologische Vorschau</h2>
-            <div className="grid-controls">
-              <label className="control">
-                Sortierung
-                <select value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)}>
-                  <option value="date-desc">Datum (neu zuerst)</option>
-                  <option value="date-asc">Datum (alt zuerst)</option>
-                  <option value="name-asc">Name (A-Z)</option>
-                  <option value="size-desc">Größe (groß zuerst)</option>
-                </select>
-              </label>
-              <label className="control">
-                Gruppierung
-                <select value={groupMode} onChange={(event) => setGroupMode(event.target.value as GroupMode)}>
-                  <option value="none">Keine</option>
-                  <option value="folder">Ordner</option>
-                </select>
-              </label>
-              <label className="control">
-                Layout
-                <select value={layoutMode} onChange={(event) => setLayoutMode(event.target.value as LayoutMode)}>
-                  <option value="grid">Raster</option>
-                  <option value="list">Liste</option>
-                </select>
-              </label>
+            <div className="tab-controls">
+              <button className={`tab-button ${tabMode === 'all' ? 'active' : ''}`} onClick={() => setTabMode('all')}>
+                Alle Medien
+              </button>
+              <button
+                className={`tab-button ${tabMode === 'duplicates' ? 'active' : ''}`}
+                onClick={() => setTabMode('duplicates')}
+              >
+                Duplikate ({duplicateItems.length})
+              </button>
+              <button
+                className={`tab-button ${tabMode === 'similar' ? 'active' : ''}`}
+                onClick={() => setTabMode('similar')}
+              >
+                Ähnliche ({similarGroups.length})
+              </button>
             </div>
+            {tabMode === 'all' ? (
+              <div className="grid-controls">
+                <label className="control">
+                  Sortierung
+                  <select value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)}>
+                    <option value="date-desc">Datum (neu zuerst)</option>
+                    <option value="date-asc">Datum (alt zuerst)</option>
+                    <option value="name-asc">Name (A-Z)</option>
+                    <option value="size-desc">Größe (groß zuerst)</option>
+                  </select>
+                </label>
+                <label className="control">
+                  Gruppierung
+                  <select value={groupMode} onChange={(event) => setGroupMode(event.target.value as GroupMode)}>
+                    <option value="none">Keine</option>
+                    <option value="folder">Ordner</option>
+                  </select>
+                </label>
+                <label className="control">
+                  Layout
+                  <select value={layoutMode} onChange={(event) => setLayoutMode(event.target.value as LayoutMode)}>
+                    <option value="grid">Raster</option>
+                    <option value="list">Liste</option>
+                  </select>
+                </label>
+              </div>
+            ) : null}
           </div>
-          {sortedItems.length === 0 ? (
+          {tabMode === 'similar' ? (
+            <div className="similar-list">
+              {similarGroups.length === 0 ? (
+                <div className="empty-state">
+                  <p>Keine ähnlichen Bilder gefunden.</p>
+                </div>
+              ) : (
+                similarGroups.map((group) => (
+                  <div key={group.base.path} className="similar-group">
+                    <div className="similar-base">
+                      <img src={group.base.fileUrl} alt={group.base.name} loading="lazy" decoding="async" />
+                      <div>
+                        <h3>{group.base.name}</h3>
+                        <p>{formatDate(group.base.modifiedAt)}</p>
+                      </div>
+                    </div>
+                    <div className="similar-matches">
+                      {group.matches.map((match) => (
+                        <div key={match.item.path} className="similar-card">
+                          <img src={match.item.fileUrl} alt={match.item.name} loading="lazy" decoding="async" />
+                          <div>
+                            <h4>{match.item.name}</h4>
+                            <p>Ähnlichkeit: {match.score}%</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          ) : visibleItems.length === 0 ? (
             <div className="empty-state">
               <p>Keine Medien gefunden. Wähle einen Ordner aus, um die Vorschau zu starten.</p>
             </div>
           ) : (
             <div className="grouped-grid">
-              {groupedItems.map((group) => (
-                <div key={group.title} className="group-section">
-                  {groupMode !== 'none' ? <h3>{group.title}</h3> : null}
-                  <div className={`grid ${layoutMode}`}>
-                    {group.items.map((item) => {
-                      const isDuplicate = item.hash ? duplicateHashes.has(item.hash) : false
-                      const badgeLabel = isDuplicate ? 'Duplikat' : item.autoFlag
+              {(tabMode === 'duplicates' ? [{ title: 'Duplikate', items: duplicateItems }] : groupedItems).map(
+                (group) => (
+                  <div key={group.title} className="group-section">
+                    {groupMode !== 'none' ? <h3>{group.title}</h3> : null}
+                    <div className={`grid ${layoutMode}`}>
+                      {group.items.map((item) => {
+                        const isDuplicate = item.hash ? duplicateHashes.has(item.hash) : false
+                        const badgeLabel = isDuplicate ? 'Duplikat' : item.autoFlag
 
-                      return (
-                      <article key={item.path} className="media-card">
-                        <div className="thumb">
-                          {item.type === 'image' ? (
-                            <img src={item.fileUrl} alt={item.name} />
-                          ) : (
-                            <video src={item.fileUrl} preload="metadata" muted />
-                          )}
-                          <span className="thumb-type">{item.type === 'image' ? 'Foto' : 'Video'}</span>
-                        </div>
-                        <div className="media-info">
-                          <div>
-                            <h3>{item.name}</h3>
-                            <p>{formatDate(item.modifiedAt)}</p>
-                          </div>
-                          <div className="meta">
-                            <span>{formatBytes(item.size)}</span>
-                            {badgeLabel ? <span className="badge badge-flagged">{badgeLabel}</span> : null}
-                          </div>
-                        </div>
-                        <div className="media-actions">
-                          <button className="keep" onClick={() => toggleDecision(item, 'keep')}>
-                            Behalten
-                          </button>
-                          <button className="discard" onClick={() => toggleDecision(item, 'delete')}>
-                            Löschen
-                          </button>
-                        </div>
-                        {decisions[item.path] ? (
-                          <span className={`status status-${decisions[item.path]}`}>{decisions[item.path]}</span>
-                        ) : null}
-                      </article>
-                      )
-                    })}
+                        return (
+                          <article key={item.path} className="media-card">
+                            <div className="thumb">
+                              {item.type === 'image' ? (
+                                <img src={item.fileUrl} alt={item.name} loading="lazy" decoding="async" />
+                              ) : (
+                                <video src={item.fileUrl} preload="metadata" muted />
+                              )}
+                              <span className="thumb-type">{item.type === 'image' ? 'Foto' : 'Video'}</span>
+                            </div>
+                            <div className="media-info">
+                              <div>
+                                <h3>{item.name}</h3>
+                                <p>{formatDate(item.modifiedAt)}</p>
+                              </div>
+                              <div className="meta">
+                                <span>{formatBytes(item.size)}</span>
+                                {badgeLabel ? <span className="badge badge-flagged">{badgeLabel}</span> : null}
+                              </div>
+                            </div>
+                            <div className="media-actions">
+                              <button className="keep" onClick={() => toggleDecision(item, 'keep')}>
+                                Behalten
+                              </button>
+                              <button className="discard" onClick={() => toggleDecision(item, 'delete')}>
+                                Löschen
+                              </button>
+                            </div>
+                            {decisions[item.path] ? (
+                              <span className={`status status-${decisions[item.path]}`}>{decisions[item.path]}</span>
+                            ) : null}
+                          </article>
+                        )
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ),
+              )}
             </div>
           )}
         </section>

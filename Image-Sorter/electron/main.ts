@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, protocol, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, protocol, shell, nativeImage } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import crypto from 'node:crypto'
@@ -34,6 +34,35 @@ const hashFile = async (filePath: string) => {
   return crypto.createHash('sha256').update(buffer).digest('hex')
 }
 
+const computeDHash = async (filePath: string) => {
+  try {
+    const image = nativeImage.createFromPath(filePath).resize({ width: 9, height: 8 })
+    if (image.isEmpty()) return undefined
+    const bitmap = image.toBitmap()
+    const pixels: number[] = []
+    for (let y = 0; y < 8; y += 1) {
+      for (let x = 0; x < 9; x += 1) {
+        const idx = (y * 9 + x) * 4
+        const r = bitmap[idx]
+        const g = bitmap[idx + 1]
+        const b = bitmap[idx + 2]
+        pixels.push(Math.round(r * 0.299 + g * 0.587 + b * 0.114))
+      }
+    }
+    let bits = ''
+    for (let y = 0; y < 8; y += 1) {
+      for (let x = 0; x < 8; x += 1) {
+        const left = pixels[y * 9 + x]
+        const right = pixels[y * 9 + x + 1]
+        bits += left > right ? '1' : '0'
+      }
+    }
+    return parseInt(bits, 2).toString(16).padStart(16, '0')
+  } catch {
+    return undefined
+  }
+}
+
 const scanFolder = async (folder: string) => {
   const results: Array<{
     id: string
@@ -46,6 +75,7 @@ const scanFolder = async (folder: string) => {
     folder: string
     autoFlag?: string
     hash?: string
+    dHash?: string
   }> = []
 
   const entries = await fs.readdir(folder, { withFileTypes: true })
@@ -71,6 +101,7 @@ const scanFolder = async (folder: string) => {
         : undefined
 
     const hash = isImage ? await hashFile(entryPath) : undefined
+    const dHash = isImage ? await computeDHash(entryPath) : undefined
 
     results.push({
       id: entry.name,
@@ -83,6 +114,7 @@ const scanFolder = async (folder: string) => {
       folder,
       autoFlag,
       hash,
+      dHash,
     })
   }
 
