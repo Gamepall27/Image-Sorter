@@ -13,6 +13,7 @@ type MediaItem = {
   type: MediaType
   folder: string
   autoFlag?: string
+  hash?: string
 }
 
 type Decision = 'keep' | 'delete'
@@ -73,6 +74,17 @@ function App() {
   const [groupMode, setGroupMode] = useState<GroupMode>('none')
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('grid')
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showPreviewModal, setShowPreviewModal] = useState(false)
+
+  const duplicateHashes = useMemo(() => {
+    const counts = new Map<string, number>()
+    items.forEach((item) => {
+      if (item.hash) {
+        counts.set(item.hash, (counts.get(item.hash) ?? 0) + 1)
+      }
+    })
+    return new Set(Array.from(counts.entries()).filter(([, count]) => count > 1).map(([hash]) => hash))
+  }, [items])
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY)
@@ -108,12 +120,23 @@ function App() {
         if (filters.size === 'large') return item.size > 10 * 1024 * 1024
         return true
       })
-      .filter((item) => (filters.flagged === 'flagged' ? Boolean(item.autoFlag) : true))
-  }, [items, filters])
+      .filter((item) =>
+        filters.flagged === 'flagged'
+          ? Boolean(item.autoFlag) || (item.hash ? duplicateHashes.has(item.hash) : false)
+          : true,
+      )
+  }, [items, filters, duplicateHashes])
 
   const sortedItems = useMemo(() => {
     const list = [...filteredItems]
     list.sort((a, b) => {
+      const aDuplicate = a.hash ? duplicateHashes.has(a.hash) : false
+      const bDuplicate = b.hash ? duplicateHashes.has(b.hash) : false
+
+      if (aDuplicate !== bDuplicate) {
+        return aDuplicate ? -1 : 1
+      }
+
       switch (sortMode) {
         case 'date-asc':
           return a.modifiedAt - b.modifiedAt
@@ -127,7 +150,7 @@ function App() {
       }
     })
     return list
-  }, [filteredItems, sortMode])
+  }, [filteredItems, sortMode, duplicateHashes])
 
   const groupedItems = useMemo(() => {
     if (groupMode === 'folder') {
@@ -195,7 +218,9 @@ function App() {
 
   const keepCount = Object.values(decisions).filter((value) => value === 'keep').length
   const deleteCount = Object.values(decisions).filter((value) => value === 'delete').length
-  const flaggedCount = items.filter((item) => item.autoFlag).length
+  const flaggedCount = items.filter(
+    (item) => item.autoFlag || (item.hash ? duplicateHashes.has(item.hash) : false),
+  ).length
 
   const deleteCandidates = items.filter((item) => decisions[item.path] === 'delete')
   const deleteSize = deleteCandidates.reduce((total, item) => total + item.size, 0)
@@ -364,7 +389,13 @@ function App() {
               <div className="review-content">
                 <div className="review-preview">
                   {activeItem.type === 'image' ? (
-                    <img src={activeItem.fileUrl} alt={activeItem.name} />
+                    <button
+                      type="button"
+                      className="preview-button"
+                      onClick={() => setShowPreviewModal(true)}
+                    >
+                      <img src={activeItem.fileUrl} alt={activeItem.name} />
+                    </button>
                   ) : (
                     <video src={activeItem.fileUrl} controls />
                   )}
@@ -448,7 +479,11 @@ function App() {
                 <div key={group.title} className="group-section">
                   {groupMode !== 'none' ? <h3>{group.title}</h3> : null}
                   <div className={`grid ${layoutMode}`}>
-                    {group.items.map((item) => (
+                    {group.items.map((item) => {
+                      const isDuplicate = item.hash ? duplicateHashes.has(item.hash) : false
+                      const badgeLabel = isDuplicate ? 'Duplikat' : item.autoFlag
+
+                      return (
                       <article key={item.path} className="media-card">
                         <div className="thumb">
                           {item.type === 'image' ? (
@@ -465,7 +500,7 @@ function App() {
                           </div>
                           <div className="meta">
                             <span>{formatBytes(item.size)}</span>
-                            {item.autoFlag ? <span className="badge badge-flagged">{item.autoFlag}</span> : null}
+                            {badgeLabel ? <span className="badge badge-flagged">{badgeLabel}</span> : null}
                           </div>
                         </div>
                         <div className="media-actions">
@@ -480,7 +515,8 @@ function App() {
                           <span className={`status status-${decisions[item.path]}`}>{decisions[item.path]}</span>
                         ) : null}
                       </article>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               ))}
@@ -546,6 +582,25 @@ function App() {
               <button className="primary" disabled={deleteCandidates.length === 0} onClick={handleMoveToTrash}>
                 Auswahl löschen
               </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showPreviewModal && activeItem?.type === 'image' ? (
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal preview-modal">
+            <div className="modal-header">
+              <div>
+                <h2>{activeItem.name}</h2>
+                <p>Vollansicht</p>
+              </div>
+              <button className="ghost" onClick={() => setShowPreviewModal(false)}>
+                Schließen
+              </button>
+            </div>
+            <div className="preview-content">
+              <img src={activeItem.fileUrl} alt={activeItem.name} />
             </div>
           </div>
         </div>

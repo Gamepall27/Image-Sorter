@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, protocol, shell } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import crypto from 'node:crypto'
 import fs from 'node:fs/promises'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -28,6 +29,11 @@ let win: BrowserWindow | null
 const imageExtensions = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tiff', '.heic'])
 const videoExtensions = new Set(['.mp4', '.mov', '.mkv', '.avi', '.webm', '.m4v'])
 
+const hashFile = async (filePath: string) => {
+  const buffer = await fs.readFile(filePath)
+  return crypto.createHash('sha256').update(buffer).digest('hex')
+}
+
 const scanFolder = async (folder: string) => {
   const results: Array<{
     id: string
@@ -39,6 +45,7 @@ const scanFolder = async (folder: string) => {
     type: 'image' | 'video'
     folder: string
     autoFlag?: string
+    hash?: string
   }> = []
 
   const entries = await fs.readdir(folder, { withFileTypes: true })
@@ -63,6 +70,8 @@ const scanFolder = async (folder: string) => {
         ? 'Sehr klein'
         : undefined
 
+    const hash = isImage ? await hashFile(entryPath) : undefined
+
     results.push({
       id: entry.name,
       name: entry.name,
@@ -73,6 +82,7 @@ const scanFolder = async (folder: string) => {
       type: isImage ? 'image' : 'video',
       folder,
       autoFlag,
+      hash,
     })
   }
 

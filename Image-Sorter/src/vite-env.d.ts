@@ -12,6 +12,7 @@ type MediaItem = {
   type: MediaType
   folder: string
   autoFlag?: string
+  hash?: string
 }
 
 type MediaPickResult = {
